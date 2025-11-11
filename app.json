@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": " ",
+    "slug": "app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/rds-logo-white.png",
+    "backgroundColor" : "green",
+    "scheme": "rdsapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBonjourServices": [
+          "_tcp.local."
+        ],
+        "NSLocalNetworkUsageDescription": "Allow RDS Screen to discover devices on the local network."
+      },
+      "entitlements": {
+        "com.apple.developer.networking.multicast": true
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/rds-logo-black.png",
+        "backgroundColor": "#0A192F"
+      },
+      "permissions": [
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+        "android.permission.INTERNET"
+      ],
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0A192F"
+        }
+      ],
+      "expo-video",
+      "expo-font",
+      "expo-web-browser",
+       [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
