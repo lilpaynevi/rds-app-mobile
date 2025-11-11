@@ -25,8 +25,6 @@ export default function ScheduleForm({
   const [startTime, setStartTime] = useState("17:00");
   const [endTime, setEndTime] = useState("18:00");
   const [daysOfWeek, setDaysOfWeek] = useState([]);
-  console.log("🚀 ~ ScheduleForm ~ daysOfWeek:", daysOfWeek)
-
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
@@ -49,7 +47,7 @@ export default function ScheduleForm({
     return nextWeek;
   });
 
-  const toggleDay = async (dayId:any) => {
+  const toggleDay = async (dayId: any) => {
     const newDaysOfWeek = daysOfWeek.includes(dayId)
       ? daysOfWeek.filter((id) => id !== dayId)
       : [...daysOfWeek, dayId].sort();
@@ -186,7 +184,7 @@ export default function ScheduleForm({
             </TouchableOpacity>
           ))}
         </View>
-
+        <Text></Text>
         <View style={styles.quickSelectContainer}>
           <TouchableOpacity
             style={styles.quickSelectButton}

@@ -209,7 +209,7 @@ export default function AddPlaylistScreen() {
             onSave={(data) => {
               console.log(data);
 
-              setSelectedMedia(data)
+              setSelectedMedia(data);
             }}
             medias={selectedMedia}
           />
@@ -238,7 +238,7 @@ export default function AddPlaylistScreen() {
           </View>
 
           {/* Sélection TV */}
-          <ScheduleForm
+          {/* <ScheduleForm
             onSave={(data) => {
               console.log("🚀 ~ data:", {
                 ...scheduleData,
@@ -248,6 +248,22 @@ export default function AddPlaylistScreen() {
                 ...scheduleData,
                 ...data,
               });
+            }}
+          /> */}
+
+          <ScheduleForm
+            onSave={(data) => {
+              console.log("🔍 Données reçues de ScheduleForm:", data);
+              console.log("📦 scheduleData actuel:", scheduleData);
+
+              const merged = {
+                ...scheduleData,
+                ...data,
+              };
+
+              console.log("✅ Données fusionnées:", merged);
+
+              setScheduleData(merged);
             }}
           />
 
@@ -520,7 +536,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
   },
-
 
   // Empty state
   emptyContainer: {

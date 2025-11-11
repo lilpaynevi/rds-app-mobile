@@ -434,13 +434,13 @@ const ScheduleModal = ({ visible, onClose, schedule, onSave, onDelete }) => {
   };
 
   const handleSave = () => {
-    console.log("newData : ", data);
+    console.log("newData : ", formData);
 
     if (formData.daysOfWeek.length === 0) {
       Alert.alert("Erreur", "Sélectionnez au moins un jour");
       return;
     }
-    onSave(data);
+    onSave(formData);
   };
 
   if (!visible) return null;
@@ -466,8 +466,8 @@ const ScheduleModal = ({ visible, onClose, schedule, onSave, onDelete }) => {
           <ScheduleForm
             onSave={(newData) => {
               console.log("🚀 ~ ScheduleModal ~ newData:", newData);
-              setData({
-                ...data,
+              setFormData({
+                ...formData,
                 ...newData,
               });
             }}
@@ -568,30 +568,106 @@ const PlaylistContent = ({ onBack }) => {
     }
   };
 
+  // const handleScheduleSave = async (scheduleData) => {
+  //   try {
+  //     setLoading(true);
+
+  //     const payload = {
+  //       ...scheduleData,
+  //     };
+  //     console.log("🚀 ~ handleScheduleSave ~ payload:", payload);
+
+  //     const res = await api.patch(`/schedules/${schedules[0].id}`, payload);
+
+  //     // if (editingSchedule) {
+  //     //   await api.patch(`/schedules/${payload.scheduleId}`, payload);
+  //     // } else {
+  //     //   await api.post("/schedules", payload);
+  //     // }
+
+  //     if (res.status != 400) {
+  //       setScheduleModalVisible(false);
+  //       setEditingSchedule(null);
+  //     }
+  //     loadPlaylistContent();
+  //   } catch (error) {
+  //     console.error("Erreur sauvegarde programmation:", error);
+  //     Alert.alert("Erreur", "Impossible de sauvegarder la programmation");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleScheduleSave = async (scheduleData) => {
+    console.log("🚀 ~ handleScheduleSave ~ scheduleData:", scheduleData)
     try {
       setLoading(true);
+      console.log("📥 handleScheduleSave reçu:", scheduleData);
 
-      const payload = {
-        ...scheduleData,
-      };
-      console.log("🚀 ~ handleScheduleSave ~ payload:", payload);
+      // ✅ Déterminez si c'est création ou modification
+      const isEditing =
+        scheduleData.scheduleId ||
+        (schedules && schedules.length > 0 && schedules[0].id);
 
-      const res = await api.patch(`/schedules/${schedules[0].id}`, payload);
+      if (isEditing) {
+        // 🔄 MODE MODIFICATION
+        const scheduleId = scheduleData.scheduleId || schedules[0].id;
+        console.log("🔄 Modification du schedule:", scheduleId);
 
-      // if (editingSchedule) {
-      //   await api.patch(`/schedules/${payload.scheduleId}`, payload);
-      // } else {
-      //   await api.post("/schedules", payload);
-      // }
+        const payload = {
+          daysOfWeek: scheduleData.daysOfWeek,
+          startTime: scheduleData.startTime,
+          endTime: scheduleData.endTime,
+          title: scheduleData.title,
+          description: scheduleData.description,
+          startDate: scheduleData.startDate,
+          endDate: scheduleData.endDate,
+          isActive: scheduleData.isActive,
+          priority: scheduleData.priority,
+        };
 
-      if (res.status != 400) {
-        setScheduleModalVisible(false);
-        setEditingSchedule(null);
+        console.log("📤 PATCH /schedules/" + scheduleId, payload);
+        const res = await api.patch(`/schedules/${scheduleId}`, payload);
+
+        if (res.status === 200) {
+          Alert.alert("Succès", "Programmation modifiée");
+          setScheduleModalVisible(false);
+          setEditingSchedule(null);
+          loadPlaylistContent(); // Recharge les données
+        }
+      } else {
+        // ➕ MODE CRÉATION
+        console.log("➕ Création d'un nouveau schedule");
+
+        const payload = {
+          playlistId: playlistId, // ✅ ID de la playlist actuelle
+          daysOfWeek: scheduleData.daysOfWeek,
+          startTime: scheduleData.startTime,
+          endTime: scheduleData.endTime,
+          title: scheduleData.title || "Programme sans titre",
+          description: scheduleData.description || "",
+          startDate: scheduleData.startDate || new Date(),
+          endDate:
+            scheduleData.endDate ||
+            new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 jours
+          isActive:
+            scheduleData.isActive !== undefined ? scheduleData.isActive : true,
+          priority: scheduleData.priority || 5,
+        };
+
+        console.log("📤 POST /schedules", payload);
+        const res = await api.post("/schedules", payload);
+
+        if (res.status === 200 || res.status === 201) {
+          Alert.alert("Succès", "Programmation créée");
+          setScheduleModalVisible(false);
+          setEditingSchedule(null);
+          loadPlaylistContent(); // Recharge les données
+        }
       }
-      loadPlaylistContent();
     } catch (error) {
-      console.error("Erreur sauvegarde programmation:", error);
+      console.error("❌ Erreur sauvegarde programmation:", error);
+      console.error("Détails:", error);
       Alert.alert("Erreur", "Impossible de sauvegarder la programmation");
     } finally {
       setLoading(false);
