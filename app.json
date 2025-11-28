@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": " ",
-    "slug": "app",
+    "slug": "rds-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/rds-logo-white.png",
-    "backgroundColor" : "green",
+    "icon": "./assets/images/rds-logo-white.jpg",
+    "backgroundColor": "green",
     "scheme": "rdsapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -32,7 +32,8 @@
         "android.permission.CHANGE_WIFI_MULTICAST_STATE",
         "android.permission.INTERNET"
       ],
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.rdsconnect.rdsapp"
     },
     "web": {
       "bundler": "metro",
@@ -53,7 +54,7 @@
       "expo-video",
       "expo-font",
       "expo-web-browser",
-       [
+      [
         "expo-document-picker",
         {
           "iCloudContainerEnvironment": "Production"
@@ -62,6 +63,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "00075f18-0ac0-4335-bae1-51ec1923cf81"
+      }
+    },
+    "owner": "rdsconnect"
   }
 }

@@ -17,8 +17,69 @@ type User = {
   firstName: string;
   lastName: string;
   email: string;
+  company: string
+  isActive: boolean
   id: string;
 };
+
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  planId: string;
+  stripeSubscriptionId: string;
+  status: SubscriptionStatus;
+  quantity: number;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  currentMaxScreens: number;
+  usedScreens: number;
+  plan: Plan;
+  metadata: SubscriptionMetadata;
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  currency: string;
+  planType: PlanType;
+  stripeProductId: string;
+  stripePriceId: string;
+  maxScreens: number | null;
+  maxStorage: number | null;
+  maxMediaFiles: number | null;
+  trialDays: number;
+  isActive: boolean;
+  isPopular: boolean;
+  parentPlanId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export enum SubscriptionStatus {
+  ACTIVE = 'ACTIVE',
+  CANCELED = 'CANCELED',
+  INCOMPLETE = 'INCOMPLETE',
+  INCOMPLETE_EXPIRED = 'INCOMPLETE_EXPIRED',
+  PAST_DUE = 'PAST_DUE',
+  TRIALING = 'TRIALING',
+  UNPAID = 'UNPAID',
+}
+
+export enum PlanType {
+  MAIN = 'MAIN',
+  OPTION = 'OPTION',
+  ADDON = 'ADDON',
+}
+
+
 
 type DecodedToken = {
   exp: number;
@@ -38,7 +99,7 @@ type AuthContextType = {
   logout: () => Promise<void>;
   updateNewInfoUser: (a: any) => Promise<void>;
   isLoading: boolean;
-  subscription: [];
+  subscription: Subscription[];
   getSubscription: () => void;
 };
 
@@ -107,23 +168,22 @@ export const AuthProvider: React.FC = ({ children }) => {
 
         const me = await authMe();
         console.log("🚀 ~ login ~ me:", me);
-        await AsyncStorage.setItem(
-          "user",
-          JSON.stringify({
-            id: me.sub,
-            firstName: me.firstName,
-            lastName: me.lastName,
-            email: me.email,
-          })
-        );
-
-        setUser({
+        var dataUser = {
           id: me.sub,
           sub: me.sub,
           firstName: me.firstName,
           lastName: me.lastName,
           email: me.email,
-        });
+          isActive: me.isActive,
+          company: me.company
+        }
+
+        await AsyncStorage.setItem(
+          "user",
+          JSON.stringify(dataUser)
+        );
+
+        setUser(dataUser);
 
         setSubscription(me.subscription);
 

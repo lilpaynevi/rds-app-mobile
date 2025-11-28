@@ -183,30 +183,30 @@ const RegisterScreen = () => {
       const data = response;
 
       if (!response.statusCode) {
-        // Alert.alert(
-        //   "Inscription réussie ! 🎉",
-        //   "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
-        //   [
-        //     {
-        //       text: "Se connecter",
-        //       onPress: () => router.navigate("/auth/login"),
-        //     },
-        //   ]
-        // );
         Alert.alert(
-          "Merci de nous avoir choisi !",
-          " L'acces au compte demande un abonnement ! Vous allez etre rediriger sur Stripe",
+          "Inscription réussie ! 🎉",
+          "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
           [
             {
-              text: "Abonnement Mensuel (30€)",
-              onPress: () => handleStripeCheckout("month"),
-            },
-            {
-              text: "Abonnement Annuel (330€ - 1 mois offert 🎉)",
-              onPress: () => handleStripeCheckout("year"),
+              text: "Se connecter",
+              onPress: () => router.navigate("/auth/login"),
             },
           ]
         );
+        // Alert.alert(
+        //   "Merci de nous avoir choisi !",
+        //   " L'acces au compte demande un abonnement ! Vous allez etre rediriger sur Stripe",
+        //   [
+        //     {
+        //       text: "Abonnement Mensuel (30€)",
+        //       onPress: () => handleStripeCheckout("month"),
+        //     },
+        //     {
+        //       text: "Abonnement Annuel (330€ - 1 mois offert 🎉)",
+        //       onPress: () => handleStripeCheckout("year"),
+        //     },
+        //   ]
+        // );
       } else {
         Alert.alert("Erreur", "Erreur lors de l'inscription");
       }

@@ -33,7 +33,7 @@ const PaymentSuccess = () => {
   }, []);
 
   const handleGoToDashboard = () => {
-    router.push('/(tabs)/dashboard'); // Ajustez selon votre navigation
+    router.push('/home'); // Ajustez selon votre navigation
   };
 
   const handleViewInvoice = () => {
@@ -65,7 +65,7 @@ const PaymentSuccess = () => {
           </Text>
 
           {/* Détails de la transaction */}
-          <View style={styles.detailsCard}>
+          {/* <View style={styles.detailsCard}>
             <DetailRow 
               icon="card-outline" 
               label="Montant" 
@@ -86,15 +86,15 @@ const PaymentSuccess = () => {
               label="Numéro" 
               value="#INV-2024-001" 
             />
-          </View>
+          </View> */}
 
           {/* Message d'information */}
-          <View style={styles.infoBox}>
+          {/* <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={20} color="#666" />
             <Text style={styles.infoText}>
               Un email de confirmation a été envoyé à votre adresse
             </Text>
-          </View>
+          </View> */}
         </Animated.View>
 
         {/* Boutons d'action */}
@@ -108,14 +108,14 @@ const PaymentSuccess = () => {
             <Ionicons name="arrow-forward" size={20} color="#000" />
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          {/* <TouchableOpacity 
             style={styles.secondaryButton}
             onPress={handleViewInvoice}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={20} color="#fff" />
             <Text style={styles.secondaryButtonText}>Voir la facture</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </Animated.View>
       </View>
 

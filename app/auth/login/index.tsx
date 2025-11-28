@@ -19,7 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { authlogin } from "../../../requests/auth.requests";
 import { useAuth } from "@/scripts/AuthContext";
-import logo from "@/assets/images/rds-logo-white.png";
+import logo from "@/assets/images/rds-logo-white.jpg";
 const LoginScreen = () => {
   const { login } = useAuth();
   const [email, setEmail] = useState("");

@@ -1,0 +1,52 @@
+{
+  "build": {
+    "production": {
+      "android": {
+        "buildType": "app-bundle",
+        "autoIncrement": true
+      },
+      "ios": {
+        "image": "macos-sequoia-15.3-xcode-16.2"
+      },
+      "env": {
+        "EXPO_PUBLIC_BASE_URL": "https://api.rdsconnect.site"
+      }
+    },
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "test": {
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "image": "macos-sequoia-15.3-xcode-16.2"
+      },
+      "env": {
+        "EXPO_PUBLIC_BASE_URL": "https://api.rdsconnect.site"
+      }
+    },
+    "preview2": {
+      "android": {
+        "gradleCommand": ":app:assembleRelease"
+      }
+    },
+    "preview3": {
+      "developmentClient": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "rdsconnect.contact@gmail.com",
+        "ascAppId": "6741048095",
+        "appleTeamId": "5XD4P6HPHR"
+      }
+    }
+  },
+  "cli": {
+    "appVersionSource": "remote"
+  }
+}

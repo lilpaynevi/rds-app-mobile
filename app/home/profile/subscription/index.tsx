@@ -11,66 +11,325 @@ import {
   Dimensions,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from "react-native";
+import api$ from "@/scripts/fetch.api";
+import api from "@/scripts/fetch.api";
+import { getMyTVs} from "@/requests/tv.requests";
+import { Modal } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { FlatList } from "react-native-gesture-handler";
 
 const { width } = Dimensions.get("window");
 
-const SubscriptionScreen = ({ navigation }) => {
-  const { subscription } = useAuth();
+const SubscriptionScreen = () => {
+  const { subscription, user } = useAuth();
+  console.log("🚀 ~ SubscriptionScreen ~ subscription:", subscription)
+  console.log("🚀 ~ SubscriptionScreen ~ subscription:", subscription)
   const [refreshing, setRefreshing] = useState(false);
-  const [subscriptionData, setSubscriptionData] = useState<any>([]);
+  const [subscriptionData, setSubscriptionData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [myTVS, setTVS] = useState([]);
+  const [displayTVSelection, setDisplayTVSelection] = useState(false);
 
-  // Simulation des données du modèle Subscription
-  const mockSubscriptionData = {
-    id: "123e4567-e89b-12d3-a456-426614174000",
-    stripeSubscriptionId: "sub_1234567890",
-    status: "ACTIVE", // ACTIVE, INACTIVE, PAST_DUE, CANCELED, UNPAID
-    currentPeriodStart: "2024-01-01T00:00:00.000Z",
-    currentPeriodEnd: "2024-02-01T00:00:00.000Z",
-    cancelAtPeriodEnd: false,
-    canceledAt: null,
-    endedAt: null,
-    quantity: 1,
-    currentMaxScreens: 15,
-    usedScreens: 8,
-    createdAt: "2023-12-01T00:00:00.000Z",
-    updatedAt: "2024-01-15T10:30:00.000Z",
-    plan: {
-      id: "plan_pro",
-      name: "Digital Signage Pro",
-      description: "Plan professionnel avec fonctionnalités avancées",
-      price: 89.99,
-      currency: "EUR",
-      interval: "MONTHLY", // MONTHLY, YEARLY
-      features: [
-        "15 écrans maximum",
-        "100 GB de stockage",
-        "Support prioritaire",
-        "Analytics avancées",
-      ],
-    },
-  };
+  const [selectedTVs, setSelectedTVs] = useState<string[]>([]);
+  const [cancelling, setCancelling] = useState(false);
+
+
 
   useEffect(() => {
     loadSubscriptionData();
   }, []);
 
+  const toggleTVSelection = (tvId: string) => {
+    setSelectedTVs(prev => {
+      if (prev.includes(tvId)) {
+        return prev.filter(id => id !== tvId);
+      } else {
+        return [...prev, tvId];
+      }
+    });
+  };
+
+  const selectExcessTVs = () => {
+    const maxScreens = subscriptionData.baseScreens; // Écrans de base après annulation
+    const excessCount = myTVS.length - maxScreens;
+
+    if (excessCount > 0) {
+      // Sélectionner les dernières TVs ajoutées
+      const excessTVs = myTVS.slice(-excessCount).map((tv: any) => tv.id);
+      setSelectedTVs(excessTVs);
+    }
+  };
+
+  /**
+   * Vérifier si on peut procéder à l'annulation
+   */
+  const canProceedWithCancellation = () => {
+    const maxScreens = subscriptionData.baseScreens;
+    const remainingTVs = myTVS.length - selectedTVs.length;
+    return remainingTVs <= maxScreens;
+  };
+
+  /**
+   * Confirmer l'annulation avec suppression des TVs
+   */
+  const confirmCancellation = async () => {
+    if (!canProceedWithCancellation()) {
+      const maxScreens = subscriptionData.baseScreens;
+      const remainingTVs = myTVS.length - selectedTVs.length;
+      const needToSelect = remainingTVs - maxScreens;
+
+      Alert.alert(
+        "Sélection insuffisante",
+        `Vous devez sélectionner ${needToSelect} TV(s) supplémentaire(s) pour ramener votre total à ${maxScreens} écrans.`
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Confirmer l'annulation",
+      `${selectedTVs.length} TV(s) seront supprimées et votre abonnement sera annulé à la fin de la période. Continuer ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Confirmer",
+          style: "destructive",
+          onPress: processCancellation,
+        },
+      ]
+    );
+  };
+
+  /**
+   * Traiter l'annulation
+   */
+  const processCancellation = async () => {
+    try {
+      setCancelling(true);
+
+      // 1️⃣ Supprimer les TVs sélectionnées
+      console.log("🗑️ Suppression des TVs:", selectedTVs);
+
+      for (const tvId of selectedTVs) {
+        await api.delete(`/tvs/${tvId}`);
+        console.log(`✅ TV ${tvId} supprimée`);
+      }
+
+      // 2️⃣ Annuler l'abonnement
+      const response = await api.delete("/stripe/subscription/cancel", {
+        data: {
+          subscriptionId: subscriptionData.id,
+          immediate: false, // Annulation en fin de période
+          reason: "user_requested",
+        },
+      });
+
+      console.log("✅ Abonnement annulé:", response.data);
+
+      // 3️⃣ Fermer le modal et rafraîchir
+      setDisplayTVSelection(false);
+      setSelectedTVs([]);
+
+      Alert.alert(
+        "Annulation programmée",
+        `${selectedTVs.length} TV(s) ont été supprimées. Votre abonnement sera annulé le ${formatDate(subscriptionData.currentPeriodEnd)}.`,
+        [{ text: "OK", onPress: loadSubscriptionData }]
+      );
+
+    } catch (error) {
+      console.error("❌ Erreur annulation:", error);
+      Alert.alert(
+        "Erreur",
+        error?.response?.data?.message || "Impossible d'annuler l'abonnement"
+      );
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  /**
+   * Gérer le clic sur "Annuler l'abonnement"
+   */
+  const handleCancelSubscription = async () => {
+    try {
+      // Récupérer les TVs de l'utilisateur
+      const getUserTVs = await getMyTVs();
+      setTVS(getUserTVs);
+
+      const currentTVCount = getUserTVs.length;
+      const maxScreensAfterCancel = subscriptionData.currentMaxScreens - currentTVCount;
+
+
+      console.log(`📊 TVs actuelles: ${currentTVCount}`);
+      console.log(`📊 Max après annulation: ${maxScreensAfterCancel}`);
+
+      // Si le nombre de TVs dépasse la limite après annulation
+      if (currentTVCount != maxScreensAfterCancel) {
+        const excessCount = currentTVCount - maxScreensAfterCancel;
+
+        Alert.alert(
+          "Trop d'écrans connectés",
+          `Vous avez ${currentTVCount} TV(s) mais votre plan de base permet ${maxScreensAfterCancel} écran(s). Vous devez supprimer ${excessCount} TV(s) avant d'annuler votre abonnement.`,
+          [
+            { text: "Annuler", style: "cancel" },
+            {
+              text: "Sélectionner les TVs",
+              onPress: () => setDisplayTVSelection(true),
+            },
+          ]
+        );
+      } else {
+        // Pas de TVs excédentaires, annulation directe
+        Alert.alert(
+          "Annuler l'abonnement",
+          "Êtes-vous sûr de vouloir annuler votre abonnement à la fin de la période ?",
+          [
+            { text: "Non", style: "cancel" },
+            {
+              text: "Oui, annuler",
+              style: "destructive",
+              onPress: async () => {
+                try {
+                  await api.delete("/stripe/subscription/cancel", {
+                    data: {
+                      subscriptionId: subscriptionData.id,
+                      immediate: false,
+                      reason: "user_requested",
+                    },
+                  });
+
+                  Alert.alert(
+                    "Annulation programmée",
+                    `Votre abonnement sera annulé le ${formatDate(subscriptionData.currentPeriodEnd)}.`,
+                    [{ text: "OK", onPress: loadSubscriptionData }]
+                  );
+                } catch (error) {
+                  Alert.alert("Erreur", "Impossible d'annuler l'abonnement");
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error("❌ Erreur récupération TVs:", error);
+      Alert.alert("Erreur", "Impossible de récupérer vos TVs");
+    }
+  };
+
+
+  /**
+   * Rendu d'une TV dans la liste
+   */
+  const renderTVItem = ({ item }: { item: any }) => {
+    const isSelected = selectedTVs.includes(item.id);
+    const isOnline = item.status === "ONLINE";
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.tvItem,
+          isSelected && styles.tvItemSelected,
+        ]}
+        onPress={() => toggleTVSelection(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.tvItemLeft}>
+          {/* Checkbox */}
+          <View style={[
+            styles.checkbox,
+            isSelected && styles.checkboxSelected,
+          ]}>
+            {isSelected && (
+              <Ionicons name="checkmark" size={16} color="#fff" />
+            )}
+          </View>
+
+          {/* Icône TV */}
+          <View style={[
+            styles.tvIcon,
+            isOnline ? styles.tvIconOnline : styles.tvIconOffline,
+          ]}>
+            <Text style={styles.tvIconText}>📺</Text>
+          </View>
+
+          {/* Infos TV */}
+          <View style={styles.tvInfo}>
+            <Text style={styles.tvName} numberOfLines={1}>
+              {item.name || `TV ${item.code}`}
+            </Text>
+            <View style={styles.tvMeta}>
+              <View style={[
+                styles.tvStatusDot,
+                { backgroundColor: isOnline ? "#10B981" : "#6B7280" },
+              ]} />
+              <Text style={styles.tvStatus}>
+                {isOnline ? "En ligne" : "Hors ligne"}
+              </Text>
+              <Text style={styles.tvCode}>• {item.code}</Text>
+            </View>
+            {item.lastConnection && (
+              <Text style={styles.tvLastSeen}>
+                Dernière connexion: {formatDate(item.lastConnection)}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        {/* Indicateur de sélection */}
+        {isSelected && (
+          <View style={styles.selectedBadge}>
+            <Text style={styles.selectedBadgeText}>À supprimer</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+
   const loadSubscriptionData = async () => {
     try {
       setLoading(true);
-      // Ici vous feriez l'appel API réel
-      // const response = await fetch('/api/subscription');
-      // const data = await response.json();
 
-      // Simulation
-      setTimeout(() => {
-        // setSubscriptionData(mockSubscriptionData);
-        setSubscriptionData(subscription[0]);
+      // ✅ Récupérer l'abonnement actif (pas les addons)
+      const activeSubscription = subscription?.find(
+        (sub) => sub.status === "ACTIVE" && sub.plan.planType === "MAIN"
+      );
+
+      if (!activeSubscription) {
+        Alert.alert(
+          "Aucun abonnement",
+          "Vous n'avez pas d'abonnement actif",
+          [{ text: "Souscrire", onPress: () => router.push("/PaymentScreen") }]
+        );
         setLoading(false);
-      }, 1000);
+        return;
+      }
+
+      // ✅ Calculer les écrans supplémentaires (addons)
+      const screenAbo = subscription?.find(
+        (sub) =>
+          sub.status === "ACTIVE" &&
+          sub.plan.planType === "MAIN"
+      );
+
+      const totalExtraScreens = Number(activeSubscription.currentMaxScreens) - Number(activeSubscription.plan.maxScreens)
+
+      // ✅ Calculer le total d'écrans disponibles
+      const totalMaxScreens = activeSubscription.currentMaxScreens + totalExtraScreens;
+
+      setSubscriptionData({
+        ...activeSubscription,
+        currentMaxScreens: screenAbo?.currentMaxScreens,
+        extraScreens: totalExtraScreens,
+        baseScreens: activeSubscription.plan.maxScreens,
+      });
+
+      setLoading(false);
     } catch (error) {
-      console.error("Erreur lors du chargement:", error);
+      console.error("❌ Erreur chargement abonnement:", error);
+      Alert.alert("Erreur", "Impossible de charger votre abonnement");
       setLoading(false);
     }
   };
@@ -81,32 +340,7 @@ const SubscriptionScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const ProgressCircle = ({ percentage, size = 60, color = "#4F46E5" }) => {
-    return (
-      <View style={[styles.progressCircle, { width: size, height: size }]}>
-        <View
-          style={[styles.progressBackground, { borderColor: `${color}20` }]}
-        >
-          <View
-            style={[
-              styles.progressFill,
-              {
-                backgroundColor: color,
-                transform: [{ rotate: `${(percentage / 100) * 360}deg` }],
-              },
-            ]}
-          />
-        </View>
-        <View style={styles.progressTextContainer}>
-          <Text style={[styles.progressPercentage, { color }]}>
-            {Math.round(percentage)}%
-          </Text>
-        </View>
-      </View>
-    );
-  };
-
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("fr-FR", {
       day: "numeric",
@@ -115,35 +349,24 @@ const SubscriptionScreen = ({ navigation }) => {
     });
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case "ACTIVE":
-        return "#10B981";
-      case "PAST_DUE":
-        return "#F59E0B";
-      case "CANCELED":
-        return "#EF4444";
-      case "INACTIVE":
-        return "#6B7280";
-      default:
-        return "#6B7280";
+      case "ACTIVE": return "#10B981";
+      case "PAST_DUE": return "#F59E0B";
+      case "CANCELED": return "#EF4444";
+      case "INACTIVE": return "#6B7280";
+      default: return "#6B7280";
     }
   };
 
-  const getStatusText = (status) => {
+  const getStatusText = (status: string) => {
     switch (status) {
-      case "ACTIVE":
-        return "Actif";
-      case "PAST_DUE":
-        return "Paiement en retard";
-      case "CANCELED":
-        return "Annulé";
-      case "INACTIVE":
-        return "Inactif";
-      case "UNPAID":
-        return "Impayé";
-      default:
-        return status;
+      case "ACTIVE": return "Actif";
+      case "PAST_DUE": return "Paiement en retard";
+      case "CANCELED": return "Annulé";
+      case "INACTIVE": return "Inactif";
+      case "UNPAID": return "Impayé";
+      default: return status;
     }
   };
 
@@ -151,14 +374,44 @@ const SubscriptionScreen = ({ navigation }) => {
     if (!subscriptionData?.currentPeriodEnd) return 0;
     const endDate = new Date(subscriptionData.currentPeriodEnd);
     const today = new Date();
-    const diffTime = endDate - today;
+    const diffTime = endDate.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
+
+  const handleManageSubscription = async () => {
+    try {
+      // Créer un portail Stripe pour gérer l'abonnement
+      const response = await api.post("/stripe/create-portal-session", {
+        userId: user.id,
+        returnUrl: "myapp://subscription",
+      });
+
+      if (response.data.url) {
+        // Ouvrir le portail Stripe
+        // Linking.openURL(response.data.url);
+        Alert.alert("Info", "Ouverture du portail de gestion...");
+      }
+    } catch (error) {
+      Alert.alert("Erreur", "Impossible d'ouvrir le portail de gestion");
+    }
+  };
+
+  const handleUpgradeScreens = () => {
+    router.push({
+      pathname: "/OptionPaymentScreen",
+      params: {
+        currentScreens: subscriptionData.currentMaxScreens,
+        usedScreens: subscriptionData.usedScreens,
+      },
+    });
+  };
+
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size={"large"} color={"blue"} />
+        <ActivityIndicator size="large" color="#4F46E5" />
+        <Text style={styles.loadingText}>Chargement...</Text>
       </View>
     );
   }
@@ -166,7 +419,16 @@ const SubscriptionScreen = ({ navigation }) => {
   if (!subscriptionData) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Erreur lors du chargement</Text>
+        <Text style={styles.errorTitle}>Aucun abonnement</Text>
+        <Text style={styles.errorText}>
+          Vous n'avez pas encore d'abonnement actif
+        </Text>
+        <TouchableOpacity
+          style={styles.subscribeButton}
+          onPress={() => router.push("/pricing")}
+        >
+          <Text style={styles.subscribeButtonText}>Voir les offres</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -175,9 +437,14 @@ const SubscriptionScreen = ({ navigation }) => {
     (subscriptionData.usedScreens / subscriptionData.currentMaxScreens) * 100;
   const daysUntilRenewal = calculateDaysUntilRenewal();
 
+  // ✅ Calcul du prix avec addons
+  const basePrice = parseFloat(subscriptionData.plan.price);
+  const addonPrice = subscriptionData.extraScreens * 5; // 5€ par écran supplémentaire
+  const totalPrice = basePrice + addonPrice;
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#4F46E5" />
+      <StatusBar barStyle="light-content" backgroundColor="#363E49" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -185,7 +452,7 @@ const SubscriptionScreen = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header avec bouton retour */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -229,36 +496,28 @@ const SubscriptionScreen = ({ navigation }) => {
                     {subscriptionData.usedScreens} /{" "}
                     {subscriptionData.currentMaxScreens}
                   </Text>
+                  {subscriptionData.extraScreens > 0 && (
+                    <Text style={styles.metricExtra}>
+                      ({subscriptionData.baseScreens} + {subscriptionData.extraScreens} écrans supplémentaires)
+                    </Text>
+                  )}
                 </View>
-                {/* <ProgressCircle
-                  percentage={screenUsagePercentage}
-                  color="#4F46E5"
-                  size={5}
-                /> */}
+                <View style={styles.iconContainer}>
+                  <Text style={styles.iconText}>📺</Text>
+                </View>
+              </View>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${screenUsagePercentage}%` },
+                  ]}
+                />
               </View>
               <Text style={styles.metricSubtext}>
                 {subscriptionData.currentMaxScreens -
                   subscriptionData.usedScreens}{" "}
                 disponibles
-              </Text>
-            </View>
-
-            {/* Quantité */}
-            <View style={styles.metricCard}>
-              <View style={styles.metricHeader}>
-                <View>
-                  <Text style={styles.metricTitle}>Quantité</Text>
-                  <Text style={styles.metricValue}>
-                    {subscriptionData.quantity}
-                  </Text>
-                </View>
-                <View style={styles.iconContainer}>
-                  <Text style={styles.iconText}>📊</Text>
-                </View>
-              </View>
-              <Text style={styles.metricSubtext}>
-                Licence{subscriptionData.quantity > 1 ? "s" : ""} active
-                {subscriptionData.quantity > 1 ? "s" : ""}
               </Text>
             </View>
           </View>
@@ -267,21 +526,19 @@ const SubscriptionScreen = ({ navigation }) => {
           <View style={styles.fullWidthCard}>
             <View style={styles.billingHeader}>
               <Text style={styles.billingTitle}>Période actuelle</Text>
-              <Text style={styles.billingPrice}>
-                {subscriptionData.plan.interval === "year" && (
-                  <>
-                    {subscriptionData.plan.price / 100}€ /
-                    {subscriptionData.plan.interval === "year" ? "an" : "mois"}
-                  </>
-                )}
-
-                {subscriptionData.plan.interval === "mouth" && (
-                  <>
-                    {subscriptionData.plan.price}€ /
-                    {subscriptionData.plan.interval === "year" ? "an" : "mois"}
-                  </>
-                )}
-              </Text>
+              <View>
+                <Text style={styles.billingPrice}>
+                  {totalPrice}€
+                </Text>
+                <Text style={styles.billingInterval}>
+                  /{subscriptionData.plan.interval === "year" ? "an" : "mois"}
+                </Text>
+                {/* {subscriptionData.extraScreens > 0 && (
+                  <Text style={styles.billingBreakdown}>
+                    {basePrice}€ + {addonPrice}€ d'option suppl.
+                  </Text>
+                )} */}
+              </View>
             </View>
             <View style={styles.billingDivider} />
             <View style={styles.billingRow}>
@@ -305,13 +562,16 @@ const SubscriptionScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.manageButton}>
+            <TouchableOpacity
+              style={styles.manageButton}
+              onPress={handleManageSubscription}
+            >
               <Text style={styles.manageButtonText}>Gérer l'abonnement</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Alertes conditionnelles */}
+        {/* Alertes */}
         {subscriptionData.cancelAtPeriodEnd && (
           <View style={styles.alertContainer}>
             <View style={[styles.alertCard, { backgroundColor: "#FEF3C7" }]}>
@@ -332,7 +592,10 @@ const SubscriptionScreen = ({ navigation }) => {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.alertButton}>
+              <TouchableOpacity
+                style={styles.alertButton}
+                onPress={handleManageSubscription}
+              >
                 <Text style={styles.alertButtonText}>Réactiver</Text>
               </TouchableOpacity>
             </View>
@@ -363,32 +626,522 @@ const SubscriptionScreen = ({ navigation }) => {
               </View>
               <TouchableOpacity
                 style={styles.alertButton}
-                onPress={() => router.navigate("/OptionPaymentScreen")}
+                onPress={handleUpgradeScreens}
               >
-                <Text style={styles.alertButtonText}>Augmenter la limite</Text>
+                <Text style={styles.alertButtonText}>
+                  Ajouter des écrans (+5€/écran)
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Fonctionnalités du plan */}
-        {/* <View style={styles.featuresContainer}>
-          <Text style={styles.featuresTitle}>Fonctionnalités incluses</Text>
-          {subscriptionData.plan.features.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Text style={styles.featureIcon}>✓</Text>
-              <Text style={styles.featureText}>{feature}</Text>
-            </View>
-          ))}
-        </View> */}
+        {/* Actions */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={styles.dangerButton}
+            onPress={handleCancelSubscription}
+          >
+            <Text style={styles.dangerButtonText}>Annuler l'abonnement</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* 🆕 MODAL DE SÉLECTION DES TVs */}
+      <Modal
+        visible={displayTVSelection}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setDisplayTVSelection(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {/* Header du modal */}
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Sélectionner les TVs à supprimer</Text>
+                <Text style={styles.modalSubtitle}>
+                  {myTVS.length} TV(s) connectée(s) • Max après annulation: {subscriptionData?.baseScreens}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setDisplayTVSelection(false)}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Barre d'info */}
+            <View style={styles.infoBar}>
+              <View style={styles.infoBarLeft}>
+                <Ionicons name="information-circle" size={20} color="#3B82F6" />
+                <Text style={styles.infoBarText}>
+                  Sélectionnez {myTVS.length - subscriptionData?.baseScreens} TV(s) minimum
+                </Text>
+              </View>
+              {selectedTVs.length > 0 && (
+                <View style={styles.selectionBadge}>
+                  <Text style={styles.selectionBadgeText}>
+                    {selectedTVs.length} sélectionnée(s)
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Bouton de sélection rapide */}
+            {myTVS.length > subscriptionData?.baseScreens && (
+              <TouchableOpacity
+                style={styles.quickSelectButton}
+                onPress={selectExcessTVs}
+              >
+                <Ionicons name="flash" size={16} color="#667eea" />
+                <Text style={styles.quickSelectText}>
+                  Sélectionner automatiquement les TVs excédentaires
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Liste des TVs */}
+            <FlatList
+              data={myTVS}
+              renderItem={renderTVItem}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.tvList}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <View style={styles.emptyList}>
+                  <Text style={styles.emptyListText}>Aucune TV trouvée</Text>
+                </View>
+              }
+            />
+
+            {/* Footer avec actions */}
+            <View style={styles.modalFooter}>
+              <View style={styles.footerInfo}>
+                <Text style={styles.footerInfoText}>
+                  TVs restantes après suppression:{" "}
+                  <Text style={styles.footerInfoValue}>
+                    {myTVS.length - selectedTVs.length}
+                  </Text>
+                </Text>
+                {!canProceedWithCancellation() && (
+                  <Text style={styles.footerWarning}>
+                    ⚠️ Vous devez supprimer plus de TVs
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.footerButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setDisplayTVSelection(false);
+                    setSelectedTVs([]);
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Annuler</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.confirmButton,
+                    (!canProceedWithCancellation() || cancelling) && styles.confirmButtonDisabled,
+                  ]}
+                  onPress={confirmCancellation}
+                  disabled={!canProceedWithCancellation() || cancelling}
+                >
+                  {cancelling ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="trash" size={18} color="#fff" />
+                      <Text style={styles.confirmButtonText}>
+                        Supprimer et annuler
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // ... (gardez tous vos styles existants)
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+
+  modalContainer: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "90%",
+    paddingBottom: 20,
+  },
+
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  infoBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    padding: 12,
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderRadius: 12,
+  },
+
+  infoBarLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 8,
+  },
+
+  infoBarText: {
+    fontSize: 13,
+    color: "#1E40AF",
+    flex: 1,
+  },
+
+  selectionBadge: {
+    backgroundColor: "#3B82F6",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+
+  selectionBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#fff",
+  },
+
+  quickSelectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F3FF",
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+  },
+
+  quickSelectText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#667eea",
+  },
+
+  tvList: {
+    padding: 20,
+    paddingTop: 12,
+  },
+
+  tvItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+
+  tvItemSelected: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#EF4444",
+  },
+
+  tvItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 12,
+  },
+
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#D1D5DB",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  checkboxSelected: {
+    backgroundColor: "#EF4444",
+    borderColor: "#EF4444",
+  },
+
+  tvIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  tvIconOnline: {
+    backgroundColor: "#D1FAE5",
+  },
+
+  tvIconOffline: {
+    backgroundColor: "#E5E7EB",
+  },
+
+  tvIconText: {
+    fontSize: 24,
+  },
+
+  tvInfo: {
+    flex: 1,
+  },
+
+  tvName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+
+  tvMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+
+  tvStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+
+  tvStatus: {
+    fontSize: 13,
+    color: "#6B7280",
+  },
+
+  tvCode: {
+    fontSize: 13,
+    color: "#9CA3AF",
+  },
+
+  tvLastSeen: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+
+  selectedBadge: {
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+
+  selectedBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#fff",
+  },
+
+  emptyList: {
+    padding: 40,
+    alignItems: "center",
+  },
+
+  emptyListText: {
+    fontSize: 16,
+    color: "#9CA3AF",
+  },
+
+  modalFooter: {
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    padding: 20,
+    gap: 16,
+  },
+
+  footerInfo: {
+    gap: 4,
+  },
+
+  footerInfoText: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+
+  footerInfoValue: {
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+
+  footerWarning: {
+    fontSize: 13,
+    color: "#EF4444",
+    fontWeight: "500",
+  },
+
+  footerButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+
+  confirmButton: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: "#EF4444",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  confirmButtonDisabled: {
+    backgroundColor: "#D1D5DB",
+    opacity: 0.6,
+  },
+
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  // ✅ Ajoutez ces nouveaux styles :
+  progressBar: {
+    height: 8,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 4,
+    marginVertical: 8,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#4F46E5",
+    borderRadius: 4,
+  },
+  metricExtra: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+  billingInterval: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    textAlign: "right",
+  },
+  billingBreakdown: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.6)",
+    textAlign: "right",
+    marginTop: 4,
+  },
+  actionsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  dangerButton: {
+    backgroundColor: "#FEE2E2",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+  },
+  dangerButtonText: {
+    color: "#DC2626",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  subscribeButton: {
+    backgroundColor: "#4F46E5",
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 20,
+  },
+  subscribeButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1F2937",
+    marginBottom: 8,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6B7280",
+  },
+
   container: {
     flex: 1,
     backgroundColor: "#F8FAFC",
@@ -399,10 +1152,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#F8FAFC",
   },
-  loadingText: {
-    fontSize: 16,
-    color: "#6B7280",
-  },
+
   errorContainer: {
     flex: 1,
     justifyContent: "center",
@@ -542,14 +1292,7 @@ const styles = StyleSheet.create({
     borderWidth: 6,
     borderColor: "#E5E7EB",
   },
-  progressFill: {
-    position: "absolute",
-    width: "50%",
-    height: "50%",
-    backgroundColor: "#4F46E5",
-    borderRadius: 50,
-    transformOrigin: "100% 100%",
-  },
+
   progressTextContainer: {
     position: "absolute",
   },

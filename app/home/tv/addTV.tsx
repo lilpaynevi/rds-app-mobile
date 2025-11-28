@@ -118,6 +118,7 @@ const TVConnectScreen = ({ onBack, onConnectionSuccess }) => {
       setConnectionStep(step.message);
       await new Promise((resolve) => setTimeout(resolve, step.duration));
     }
+    console.log("frfrfr ")
     socket.emit("connect-tv-code", {
       code: inputCode,
       userId: user?.id,

@@ -38,6 +38,7 @@ interface QuickAction {
 
 const HomeScreen = () => {
   const { user, subscription, getSubscription } = useAuth();
+  console.log("🚀 ~ HomeScreen ~ subscription:", subscription)
   const [televisions, setTelevisions] = useState<Television[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,9 +47,14 @@ const HomeScreen = () => {
   const [reName, setRename] = useState(null);
 
   const abonnmentRender = () => {
+    if (subscription.find((it) => it.plan.planType === "OPTION")) {
+      return router.navigate("/updateOptionSubscription")
+    }
+
     if (subscription.length > 0) {
       return router.navigate("/OptionPaymentScreen");
     }
+
     return router.navigate("/PaymentScreen");
   };
 
@@ -373,8 +379,8 @@ const HomeScreen = () => {
           <View style={styles.sectionHeader}>
             {subscription && subscription.length > 0 && (
               <Text style={styles.sectionTitle}>
-                Mes télévisions ({subscription[0]?.usedScreens}/
-                {subscription[0]?.currentMaxScreens})
+                Mes télévisions ({subscription.find((it) => it.plan.planType == "MAIN")?.usedScreens}/
+                {subscription.find((it) => it.plan.planType === "MAIN")?.currentMaxScreens})
               </Text>
             )}
 
@@ -397,8 +403,7 @@ const HomeScreen = () => {
               <Ionicons name="tv-outline" size={64} color="#ccc" />
               <Text style={styles.emptyTitle}>Aucune télévision</Text>
               <Text style={styles.emptySubtitle}>
-                Commencez par scanner votre réseau pour détecter vos boîtiers
-                IPTV
+                Commencez par ajouter une télévision
               </Text>
               <TouchableOpacity style={styles.scanButton} onPress={addTV}>
                 <Ionicons name="scan" size={20} color="white" />

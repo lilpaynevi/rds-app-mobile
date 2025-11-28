@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/scripts/AuthContext";
 import { authMe } from "@/requests/auth.requests";
 import api from "@/scripts/fetch.api";
+import { router } from "expo-router";
 
 interface User {
   id: string;
@@ -44,6 +45,7 @@ export default function ProfileScreen() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [company, setCompany] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -62,6 +64,7 @@ export default function ProfileScreen() {
         setFirstName(user.firstName);
         setLastName(user.lastName);
         setEmail(user.email);
+        setCompany(user.company);
         setAvatar(user?.avatar || "");
       }
     } catch (error) {
@@ -92,6 +95,7 @@ export default function ProfileScreen() {
         firstName,
         lastName,
         email,
+        company
       });
 
       if (response) {
@@ -103,6 +107,7 @@ export default function ProfileScreen() {
           firstName,
           lastName,
           email,
+          company
         });
         Alert.alert("Succès", "Profil mis à jour avec succès");
       }
@@ -119,13 +124,13 @@ export default function ProfileScreen() {
       setFirstName(user.firstName);
       setLastName(user.lastName);
       setEmail(user.email);
-      setAvatar(user?.avatar || "");
+      setCompany(user.company)
     }
     setIsEditing(false);
   };
 
   const handleChangePassword = () => {
-    Alert.alert("Info", "Fonctionnalité à venir");
+    return router.navigate("/home/profile/subscription/forgot-password")
   };
 
   const handleLogout = () => {
@@ -203,7 +208,7 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#6366F1" />
-      
+
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -226,6 +231,20 @@ export default function ProfileScreen() {
           {/* Header avec gradient */}
           <View style={styles.header}>
             <View style={styles.headerContent}>
+              <TouchableOpacity
+                style={[
+                  styles.editButton,
+                  isEditing && styles.editButtonActive
+                ]}
+                onPress={() => router.back()}
+                disabled={isLoading}
+              >
+                <Ionicons
+                  name={"arrow-back"}
+                  size={22}
+                  color="#fff"
+                />
+              </TouchableOpacity>
               <Text style={styles.title}>Mon Profil</Text>
               <TouchableOpacity
                 style={[
@@ -280,7 +299,7 @@ export default function ProfileScreen() {
             <Text style={styles.fullName}>
               {user?.firstName} {user?.lastName}
             </Text>
-            
+
             {/* Badge de rôle */}
             <View
               style={[
@@ -293,20 +312,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
 
-            {/* URL Avatar en mode édition */}
-            {isEditing && (
-              <View style={styles.avatarEditContainer}>
-                <Text style={styles.inputLabel}>Photo de profil</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={avatar}
-                  onChangeText={setAvatar}
-                  placeholder="URL de votre photo"
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-              </View>
-            )}
+
           </View>
 
           {/* Informations Personnelles */}
@@ -366,6 +372,7 @@ export default function ProfileScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
+                  aria-disabled={true}
                 />
               ) : (
                 <View style={styles.inputValueContainer}>
@@ -373,10 +380,29 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Entreprise</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.textInput}
+                  value={company}
+                  onChangeText={setCompany}
+                  placeholder="Pizza Time Montmartre"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  aria-disabled={true}
+                />
+              ) : (
+                <View style={styles.inputValueContainer}>
+                  <Text style={styles.inputValue}>{user?.company}</Text>
+                </View>
+              )}
+            </View>
           </View>
 
           {/* Informations du Compte */}
-          <View style={styles.section}>
+          {/* <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
                 <Ionicons name="information-circle" size={20} color="#6366F1" />
@@ -404,14 +430,14 @@ export default function ProfileScreen() {
               )}
             </View>
 
-            <View style={styles.infoRow}>
+             <View style={styles.infoRow}>
               <Ionicons name="key" size={20} color="#9CA3AF" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>ID Utilisateur</Text>
                 <Text style={styles.infoValueSmall}>{user?.id}</Text>
               </View>
-            </View>
-          </View>
+            </View> 
+          </View> */}
 
           {/* Boutons de sauvegarde en mode édition */}
           {isEditing && (
