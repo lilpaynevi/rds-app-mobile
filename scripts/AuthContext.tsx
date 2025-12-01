@@ -131,7 +131,6 @@ export const AuthProvider: React.FC = ({ children }) => {
             logout();
           }
 
-          console.warn("🚀 ~ loadUserData ~ isDriver lo:", isDriver);
 
           setSubscription(isDriver.subscription);
 
@@ -306,7 +305,6 @@ export const AuthProvider: React.FC = ({ children }) => {
 
   const getSubscription = async () => {
     const isDriver = await authMe();
-    console.warn("🚀 ~ loadUserData ~ isDriver SUBS:", isDriver);
 
     setSubscription(isDriver.subscription);
   };

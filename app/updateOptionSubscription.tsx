@@ -17,12 +17,14 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/scripts/AuthContext";
 import { createUpdateSession } from "@/requests/stripe.requests";
+import { getMyTVs } from "@/requests/tv.requests";
 
 const { width } = Dimensions.get("window");
 
 const UpdateScreenCapacityScreen = () => {
   const [loading, setLoading] = useState(false);
   const [newQuantity, setNewQuantity] = useState(0);
+  const [myTVs, setTVS] = useState([]);
   const { user, subscription } = useAuth();
 
   // Configuration de l'option écran supplémentaire
@@ -46,11 +48,21 @@ const UpdateScreenCapacityScreen = () => {
   const currentQuantity = optionSubscription?.quantity || 0;
   const currentScreens = subscription?.[0]?.currentMaxScreens || 5;
   const baseScreens = 5; // Écrans inclus dans l'abonnement de base
+  const fetchInit = async () => {
+    const p = await getMyTVs();
+    setTVS(p);
+  };
+
+  const numberUsedScreen = subscription.find(
+    (it) => it.plan.planType === "MAIN"
+  )?.usedScreens;
 
   useEffect(() => {
-    if (currentQuantity > 0) {
+    if (currentQuantity > myTVs.length) {
       setNewQuantity(currentQuantity);
     }
+
+    fetchInit();
   }, [currentQuantity]);
 
   const handleUpdateCapacity = async () => {
@@ -73,7 +85,8 @@ const UpdateScreenCapacityScreen = () => {
 
       setLoading(true);
 
-      const action = newQuantity > currentQuantity ? "augmentation" : "réduction";
+      const action =
+        newQuantity > currentQuantity ? "augmentation" : "réduction";
       const difference = Math.abs(newQuantity - currentQuantity);
 
       Alert.alert(
@@ -89,11 +102,15 @@ const UpdateScreenCapacityScreen = () => {
             text: "Confirmer",
             onPress: async () => {
               try {
+
                 const response = await createUpdateSession(
-                  optionSubscription ? optionSubscription.stripeSubscriptionId : 'rien',
-                 newQuantity
+                  optionSubscription
+                    ? optionSubscription.stripeSubscriptionId
+                    : "rien",
+                  newQuantity
                 );
-                console.log("🚀 ~ handleUpdateCapacity ~ response:", response)
+
+                console.log("🚀 ~ handleUpdateCapacity ~ response:", response);
 
                 Alert.alert(
                   "Succès",
@@ -125,7 +142,7 @@ const UpdateScreenCapacityScreen = () => {
   };
 
   const incrementQuantity = () => {
-      setNewQuantity(newQuantity + 1);
+    setNewQuantity(newQuantity + 1);
   };
 
   const decrementQuantity = () => {
@@ -151,13 +168,22 @@ const UpdateScreenCapacityScreen = () => {
   const isIncrease = newQuantity > currentQuantity;
   const hasChanges = newQuantity !== currentQuantity;
 
-  const ComparisonCard = ({ title, current, newValue, unit, highlight = false }) => (
+  const ComparisonCard = ({
+    title,
+    current,
+    newValue,
+    unit,
+    highlight = false,
+  }) => (
     <View style={styles.comparisonCard}>
       <Text style={styles.comparisonTitle}>{title}</Text>
       <View style={styles.comparisonRow}>
         <View style={styles.comparisonItem}>
           <Text style={styles.comparisonLabel}>Actuel</Text>
-          <Text style={styles.comparisonValue}>{current}{unit}</Text>
+          <Text style={styles.comparisonValue}>
+            {current}
+            {unit}
+          </Text>
         </View>
 
         <View style={styles.comparisonArrow}>
@@ -170,11 +196,17 @@ const UpdateScreenCapacityScreen = () => {
 
         <View style={styles.comparisonItem}>
           <Text style={styles.comparisonLabel}>Nouveau</Text>
-          <Text style={[
-            styles.comparisonValue,
-            highlight && (isIncrease ? styles.comparisonValueIncrease : styles.comparisonValueDecrease)
-          ]}>
-            {newValue}{unit}
+          <Text
+            style={[
+              styles.comparisonValue,
+              highlight &&
+                (isIncrease
+                  ? styles.comparisonValueIncrease
+                  : styles.comparisonValueDecrease),
+            ]}
+          >
+            {newValue}
+            {unit}
           </Text>
         </View>
       </View>
@@ -226,7 +258,12 @@ const UpdateScreenCapacityScreen = () => {
             </View>
 
             <View style={styles.statusItem}>
-              <View style={[styles.statusIconContainer, { backgroundColor: "#DCFCE7" }]}>
+              <View
+                style={[
+                  styles.statusIconContainer,
+                  { backgroundColor: "#DCFCE7" },
+                ]}
+              >
                 <Text style={styles.statusItemIcon}>➕</Text>
               </View>
               <Text style={[styles.statusNumber, { color: "#059669" }]}>
@@ -240,7 +277,12 @@ const UpdateScreenCapacityScreen = () => {
             </View>
 
             <View style={styles.statusItem}>
-              <View style={[styles.statusIconContainer, { backgroundColor: "#EEF2FF" }]}>
+              <View
+                style={[
+                  styles.statusIconContainer,
+                  { backgroundColor: "#EEF2FF" },
+                ]}
+              >
                 <Text style={styles.statusItemIcon}>📊</Text>
               </View>
               <Text style={[styles.statusNumber, { color: "#4F46E5" }]}>
@@ -264,7 +306,7 @@ const UpdateScreenCapacityScreen = () => {
       {/* Quantity Selector */}
       <View style={styles.quantityContainer}>
         <View style={styles.quantityCard}>
-         <View style={styles.quantityHeader}>
+          <View style={styles.quantityHeader}>
             <Text style={styles.quantityTitle}>Nouvelle Quantité</Text>
             {/* <View style={styles.quantityBadge}>
               <Text style={styles.quantityBadgeText}>
@@ -273,6 +315,30 @@ const UpdateScreenCapacityScreen = () => {
             </View> */}
           </View>
 
+          {baseScreens + newQuantity === numberUsedScreen && (
+            <>
+              <View
+                style={[
+                  styles.quantityChangeIndicator,
+                  isIncrease
+                    ? styles.quantityChangeIncrease
+                    : styles.quantityChangeDecrease,
+                ]}
+              >
+                <Text style={styles.quantityChangeIcon}>🔒</Text>
+                <Text style={{ ...styles.quantityChangeText, fontSize: 10 , color: "red", textAlign: "center" }}>
+                  Vous avec {numberUsedScreen} télévisions connectés, 
+                  Merci d'en supprimer {newQuantity} télévisions de votre choix avant de
+                  modifier votre abonnement
+                </Text>
+              </View>
+
+              <View>
+                <Text></Text>
+              </View>
+            </>
+          )}
+
           <View style={styles.quantitySelector}>
             <TouchableOpacity
               style={[
@@ -280,7 +346,7 @@ const UpdateScreenCapacityScreen = () => {
                 newQuantity <= 0 && styles.quantityButtonDisabled,
               ]}
               onPress={decrementQuantity}
-              disabled={newQuantity <= 0}
+              disabled={baseScreens + newQuantity === numberUsedScreen}
             >
               <Text
                 style={[
@@ -307,31 +373,29 @@ const UpdateScreenCapacityScreen = () => {
             </View>
 
             <TouchableOpacity
-              style={[
-                styles.quantityButton,
-              ]}
+              style={[styles.quantityButton]}
               onPress={incrementQuantity}
             >
-              <Text
-                style={[
-                  styles.quantityButtonText
-                ]}
-              >
-                +
-              </Text>
+              <Text style={[styles.quantityButtonText]}>+</Text>
             </TouchableOpacity>
           </View>
 
           {hasChanges && (
-            <View style={[
-              styles.quantityChangeIndicator,
-              isIncrease ? styles.quantityChangeIncrease : styles.quantityChangeDecrease
-            ]}>
+            <View
+              style={[
+                styles.quantityChangeIndicator,
+                isIncrease
+                  ? styles.quantityChangeIncrease
+                  : styles.quantityChangeDecrease,
+              ]}
+            >
               <Text style={styles.quantityChangeIcon}>
                 {isIncrease ? "📈" : "📉"}
               </Text>
               <Text style={styles.quantityChangeText}>
-                {isIncrease ? "Augmentation" : "Réduction"} de {Math.abs(screenDifference)} écran{Math.abs(screenDifference) > 1 ? "s" : ""}
+                {isIncrease ? "Augmentation" : "Réduction"} de{" "}
+                {Math.abs(screenDifference)} écran
+                {Math.abs(screenDifference) > 1 ? "s" : ""}
               </Text>
             </View>
           )}
@@ -342,7 +406,9 @@ const UpdateScreenCapacityScreen = () => {
       {hasChanges && (
         <View style={styles.comparisonContainer}>
           <View style={styles.comparisonHeader}>
-            <Text style={styles.comparisonHeaderTitle}>📊 Résumé des Changements</Text>
+            <Text style={styles.comparisonHeaderTitle}>
+              📊 Résumé des Changements
+            </Text>
           </View>
 
           <ComparisonCard
@@ -369,10 +435,14 @@ const UpdateScreenCapacityScreen = () => {
           />
 
           {/* Cost Difference Highlight */}
-          <View style={[
-            styles.costDifferenceCard,
-            isIncrease ? styles.costDifferenceIncrease : styles.costDifferenceDecrease
-          ]}>
+          <View
+            style={[
+              styles.costDifferenceCard,
+              isIncrease
+                ? styles.costDifferenceIncrease
+                : styles.costDifferenceDecrease,
+            ]}
+          >
             <View style={styles.costDifferenceHeader}>
               <Text style={styles.costDifferenceIcon}>
                 {isIncrease ? "💰" : "💸"}
@@ -382,13 +452,13 @@ const UpdateScreenCapacityScreen = () => {
               </Text>
             </View>
             <Text style={styles.costDifferenceAmount}>
-              {isIncrease ? "+" : "-"}{Math.abs(costDifference)}€/mois
+              {isIncrease ? "+" : "-"}
+              {Math.abs(costDifference)}€/mois
             </Text>
             <Text style={styles.costDifferenceDescription}>
               {isIncrease
                 ? `Vous serez facturé ${Math.abs(costDifference)}€ de plus par mois`
-                : `Vous économiserez ${Math.abs(costDifference)}€ par mois`
-              }
+                : `Vous économiserez ${Math.abs(costDifference)}€ par mois`}
             </Text>
           </View>
         </View>
@@ -423,8 +493,7 @@ const UpdateScreenCapacityScreen = () => {
               <Text style={styles.infoItemText}>
                 {isIncrease
                   ? "Le montant sera calculé au prorata pour la période restante"
-                  : "Un crédit sera appliqué au prorata sur votre prochaine facture"
-                }
+                  : "Un crédit sera appliqué au prorata sur votre prochaine facture"}
               </Text>
             </View>
           </View>
@@ -436,7 +505,8 @@ const UpdateScreenCapacityScreen = () => {
             <View style={styles.infoContent}>
               <Text style={styles.infoItemTitle}>Modification flexible</Text>
               <Text style={styles.infoItemText}>
-                Vous pouvez modifier votre capacité à tout moment selon vos besoins
+                Vous pouvez modifier votre capacité à tout moment selon vos
+                besoins
               </Text>
             </View>
           </View>
@@ -475,12 +545,12 @@ const UpdateScreenCapacityScreen = () => {
                       ? "Aucun changement"
                       : isIncrease
                         ? `Augmenter à ${newQuantity} écrans`
-                        : `Réduire à ${newQuantity} écran${newQuantity > 1 ? "s" : ""}`
-                    }
+                        : `Réduire à ${newQuantity} écran${newQuantity > 1 ? "s" : ""}`}
                   </Text>
                   {hasChanges && (
                     <Text style={styles.buttonSubtext}>
-                      {isIncrease ? "+" : ""}{costDifference}€/mois • Prise d'effet immédiate
+                      {isIncrease ? "+" : ""}
+                      {costDifference}€/mois • Prise d'effet immédiate
                     </Text>
                   )}
                 </View>

@@ -40,7 +40,7 @@ export default function PlaylistDetailScreen() {
         mediaCount: it.items.length,
         duration: "",
         televisionId: it.televisions?.[0]?.televisionId || "Non assignée",
-        televisionName: it.televisions?.[0]?.television.name || "Non assignée",
+        televisionName: it.televisions?.[0]?.television?.name || "Non assignée",
         status: it.isActive ? "active" : "inactive", // Adapter selon votre logique
         lastModified: it.updatedAt,
     });

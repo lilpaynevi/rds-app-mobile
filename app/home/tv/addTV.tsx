@@ -48,7 +48,7 @@ const TVConnectScreen = ({ onBack, onConnectionSuccess }) => {
       Vibration?.vibrate([100, 50, 100, 50, 100]);
 
       setTimeout(() => {
-        router.back()
+        router.navigate('/home')
       }, 3000);
     });
 

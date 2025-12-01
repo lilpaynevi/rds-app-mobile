@@ -555,7 +555,7 @@ const PlaylistContent = ({ onBack }) => {
         )
       );
 
-      if (isActive && selectedTv != null) {
+      if (selectedTv != null) {
         socket.emit("tv-change-playlist", {
           tvId: selectedTv.id,
           newPlaylistId: playlistId,
@@ -844,7 +844,7 @@ const PlaylistContent = ({ onBack }) => {
       if (selectedMedia?.id === mediaId) {
         setModalVisible(false);
       }
-      if (isActive === true && selectedTv) {
+      if (selectedTv) {
         socket.emit("tv-change-playlist", {
           tvId: selectedTv.id,
           newPlaylistId: playlist.id,
@@ -1019,10 +1019,12 @@ const PlaylistContent = ({ onBack }) => {
         }
       );
       setIsActive(newStatus);
+
       socket.emit("tv-change-playlist", {
         tvId: selectedTv.id,
         newPlaylistId: playlistId,
       });
+      
     } catch (error) {
       console.error("Erreur mise à jour statut:", error);
       Alert.alert("Erreur", "Impossible de mettre à jour le statut");

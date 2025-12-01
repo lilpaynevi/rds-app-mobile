@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useAuth } from "@/scripts/AuthContext";
 import api from "@/scripts/fetch.api";
+import { socket } from "@/scripts/socket.io";
 
 interface Television {
   id: string;
@@ -38,7 +39,6 @@ interface QuickAction {
 
 const HomeScreen = () => {
   const { user, subscription, getSubscription } = useAuth();
-  console.log("🚀 ~ HomeScreen ~ subscription:", subscription)
   const [televisions, setTelevisions] = useState<Television[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,7 +48,7 @@ const HomeScreen = () => {
 
   const abonnmentRender = () => {
     if (subscription.find((it) => it.plan.planType === "OPTION")) {
-      return router.navigate("/updateOptionSubscription")
+      return router.navigate("/updateOptionSubscription");
     }
 
     if (subscription.length > 0) {
@@ -78,13 +78,13 @@ const HomeScreen = () => {
       action: () => router.navigate("/home/playlists"),
     },
 
-    // {
-    //   id: "4",
-    //   title: "Paramètres",
-    //   icon: "settings",
-    //   color: "#9C27B0",
-    //   action: () => router.navigate("Settings"),
-    // },
+    {
+      id: "4",
+      title: "Gérer mes télévisions",
+      icon: "settings",
+      color: "#6b983dff",
+      action: () => router.navigate("/home/tv/MyTVScreen"),
+    },
   ];
 
   // Charger les données
@@ -204,13 +204,18 @@ const HomeScreen = () => {
   // Supprimer une TV
   const deleteTV = async (tvId: string) => {
     try {
-      const deleteTVrq = await api.delete("/televisions/" + tvId);
-      if (deleteTVrq.data.success) {
+      const deleteTVrq = await api.get(
+        "/televisions/" + tvId + "/user/dissociated"
+      );
+      if (deleteTVrq) {
         setTelevisions((prev) => prev.filter((tv) => tv.id !== tvId));
+
+        socket.emit("leave-room", { roomName: "tv:" + tvId, tvId });
+
         Alert.alert("✅", "Télévision supprimée");
       }
     } catch (error) {
-      Alert.alert("Erreur", "Impossible de supprimer la télévision");
+      Alert.alert("Erreur", error.message);
     }
   };
 
@@ -379,8 +384,17 @@ const HomeScreen = () => {
           <View style={styles.sectionHeader}>
             {subscription && subscription.length > 0 && (
               <Text style={styles.sectionTitle}>
-                Mes télévisions ({subscription.find((it) => it.plan.planType == "MAIN")?.usedScreens}/
-                {subscription.find((it) => it.plan.planType === "MAIN")?.currentMaxScreens})
+                Mes télévisions (
+                {
+                  subscription.find((it) => it.plan.planType == "MAIN")
+                    ?.usedScreens
+                }
+                /
+                {
+                  subscription.find((it) => it.plan.planType === "MAIN")
+                    ?.currentMaxScreens
+                }
+                )
               </Text>
             )}
 
