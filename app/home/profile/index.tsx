@@ -34,7 +34,7 @@ interface User {
 }
 
 export default function ProfileScreen() {
-  const { updateNewInfoUser, user, logout } = useAuth();
+  const { updateNewInfoUser, user, logout, subscription } = useAuth();
   const [userData, setUserData] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -95,7 +95,7 @@ export default function ProfileScreen() {
         firstName,
         lastName,
         email,
-        company
+        company,
       });
 
       if (response) {
@@ -107,7 +107,7 @@ export default function ProfileScreen() {
           firstName,
           lastName,
           email,
-          company
+          company,
         });
         Alert.alert("Succès", "Profil mis à jour avec succès");
       }
@@ -124,13 +124,13 @@ export default function ProfileScreen() {
       setFirstName(user.firstName);
       setLastName(user.lastName);
       setEmail(user.email);
-      setCompany(user.company)
+      setCompany(user.company);
     }
     setIsEditing(false);
   };
 
   const handleChangePassword = () => {
-    return router.navigate("/home/profile/subscription/forgot-password")
+    return router.navigate("/home/profile/subscription/forgot-password");
   };
 
   const handleLogout = () => {
@@ -223,7 +223,7 @@ export default function ProfileScreen() {
                 fetchUserProfile();
               }}
               tintColor="#6366F1"
-              colors={['#6366F1']}
+              colors={["#6366F1"]}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -234,22 +234,18 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={[
                   styles.editButton,
-                  isEditing && styles.editButtonActive
+                  isEditing && styles.editButtonActive,
                 ]}
                 onPress={() => router.back()}
                 disabled={isLoading}
               >
-                <Ionicons
-                  name={"arrow-back"}
-                  size={22}
-                  color="#fff"
-                />
+                <Ionicons name={"arrow-back"} size={22} color="#fff" />
               </TouchableOpacity>
               <Text style={styles.title}>Mon Profil</Text>
               <TouchableOpacity
                 style={[
                   styles.editButton,
-                  isEditing && styles.editButtonActive
+                  isEditing && styles.editButtonActive,
                 ]}
                 onPress={() => setIsEditing(!isEditing)}
                 disabled={isLoading}
@@ -267,10 +263,7 @@ export default function ProfileScreen() {
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
               {user?.avatar ? (
-                <Image
-                  source={{ uri: user.avatar }}
-                  style={styles.avatar}
-                />
+                <Image source={{ uri: user.avatar }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
                   <Text style={styles.avatarText}>
@@ -311,8 +304,6 @@ export default function ProfileScreen() {
                 {getRoleLabel(user?.role || "")}
               </Text>
             </View>
-
-
           </View>
 
           {/* Informations Personnelles */}
@@ -364,16 +355,35 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               {isEditing ? (
-                <TextInput
-                  style={styles.textInput}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="email@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  aria-disabled={true}
-                />
+                <>
+                  <TextInput
+                    style={styles.textInput}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="email@example.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    aria-disabled={true}
+                  />
+                  {subscription.length > 0 && (
+                    <View
+                      style={{
+                        marginTop: 3,
+                        padding: 20,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: "red",
+                        }}
+                      >
+                        Impossible de modifier votre email après avoir souscrit
+                        à un abonnement
+                      </Text>
+                    </View>
+                  )}
+                </>
               ) : (
                 <View style={styles.inputValueContainer}>
                   <Text style={styles.inputValue}>{user?.email}</Text>
@@ -481,7 +491,7 @@ export default function ProfileScreen() {
               style={styles.actionItem}
               onPress={handleChangePassword}
             >
-              <View style={[styles.actionIcon, { backgroundColor: '#FEF3C7' }]}>
+              <View style={[styles.actionIcon, { backgroundColor: "#FEF3C7" }]}>
                 <Ionicons name="lock-closed" size={20} color="#F59E0B" />
               </View>
               <Text style={styles.actionText}>Changer le mot de passe</Text>
@@ -489,7 +499,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionItem} onPress={handleLogout}>
-              <View style={[styles.actionIcon, { backgroundColor: '#FEE2E2' }]}>
+              <View style={[styles.actionIcon, { backgroundColor: "#FEE2E2" }]}>
                 <Ionicons name="log-out" size={20} color="#EF4444" />
               </View>
               <Text style={[styles.actionText, styles.logoutText]}>

@@ -17,7 +17,7 @@ import {
   TextInput,
 } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -109,7 +109,7 @@ const ReorderModal = ({ visible, onClose, media, onReorder }) => {
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Réorganiser les médias</Text>
           <TouchableOpacity onPress={handleSave} style={styles.modalSaveButton}>
-            <Text style={styles.modalSaveButtonText}>Sauvegarder</Text>
+            <Feather name="check" size={24} color="white" />
           </TouchableOpacity>
         </View>
 

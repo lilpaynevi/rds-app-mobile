@@ -119,8 +119,10 @@ export const AuthProvider: React.FC = ({ children }) => {
     const loadUserData = async () => {
       try {
         const storedUser = await AsyncStorage.getItem("user");
+        console.log("🚀 ~ loadUserData ~ storedUser:", storedUser)
         const token = await AsyncStorage.getItem("authToken");
         const subStripe = await AsyncStorage.getItem("subscription");
+        console.log("🚀 ~ loadUserData ~ subStripe:", subStripe)
 
         if (storedUser && token) {
           setUser(JSON.parse(storedUser));

@@ -10,10 +10,14 @@ import { StatusBar } from "expo-status-bar";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { AuthProvider } from "@/scripts/AuthContext";
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useDeepLink } from "@/hooks/useDeepLink";
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  useDeepLink();
+
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });

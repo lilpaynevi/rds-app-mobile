@@ -104,7 +104,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
           style={styles.closeButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="close" size={28} color="#64748b" />
+          {/* <Ionicons name="close" size={28} color="#64748b" /> */}
         </TouchableOpacity>
 
         <View style={styles.header}>
@@ -172,6 +172,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: 30,
     backgroundColor: '#fff',
   },
 

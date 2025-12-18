@@ -18,6 +18,7 @@ import api from "@/scripts/fetch.api";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { socket } from "@/scripts/socket.io";
+import { useAuth } from "@/scripts/AuthContext";
 
 // Types basés sur votre schéma Prisma
 interface Television {
@@ -129,6 +130,8 @@ export default function MyTelevisionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const { user , subscription } = useAuth()
+
   // Charger les télévisions
   const fetchTelevisions = useCallback(async () => {
     try {
@@ -174,6 +177,8 @@ export default function MyTelevisionsScreen() {
                 roomName: "tv:" + tv.id,
                 tvId: tv.id,
               });
+
+
 
               Alert.alert("Succès", "Télévision supprimée");
             } catch (error: any) {
@@ -344,6 +349,15 @@ export default function MyTelevisionsScreen() {
   if (televisions.length === 0) {
     return (
       <View style={styles.centerContainer}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{...styles.backButton, width: 100}}
+          activeOpacity={0.7}
+
+        >
+          <Text>Retour</Text>
+        </TouchableOpacity>
+
         <Ionicons name="tv-outline" size={64} color="#D1D5DB" />
         <Text style={styles.emptyTitle}>Aucune télévision</Text>
         <Text style={styles.emptySubtitle}>

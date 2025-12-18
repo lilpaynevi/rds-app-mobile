@@ -18,6 +18,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams, useRouter } from "expo-router";
 import EditTvModal from "./EditModal";
+import { dissociatedUser } from "@/requests/tv.requests";
 
 interface TvDetailsProps {
   data: any; // Remplacez par votre interface TV
@@ -106,7 +107,10 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
             </View>
           </View>
 
-          <TouchableOpacity onPress={() => setIsEditModalVisible(true)} style={styles.settingsButton}>
+          <TouchableOpacity
+            onPress={() => setIsEditModalVisible(true)}
+            style={styles.settingsButton}
+          >
             <MaterialIcons name="edit" size={24} color="white" />
           </TouchableOpacity>
         </View>
@@ -387,15 +391,28 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
 
         {/* Actions rapides */}
         <View style={styles.actionsContainer}>
-          {/* <TouchableOpacity
+          <TouchableOpacity
             style={[styles.actionButton, styles.primaryAction]}
-            onPress={() =>
-              Alert.alert("Contrôler", "Ouvrir le panneau de contrôle")
-            }
+            onPress={() => {
+              Alert.alert(
+                "Supprimer la télévision",
+                `Êtes-vous sûr de vouloir supprimer "${data.name}" ?`,
+                [
+                  { text: "Annuler", style: "cancel" },
+                  {
+                    text: "Supprimer",
+                    style: "destructive",
+                    onPress: async () => {
+                      const pp = await dissociatedUser(data.id);
+                    },
+                  },
+                ]
+              );
+            }}
           >
-            <MaterialIcons name="control-camera" size={20} color="white" />
-            <Text style={styles.actionButtonText}>Contrôler</Text>
-          </TouchableOpacity> */}
+            <MaterialIcons name="restore-from-trash" size={20} color="white" />
+            <Text style={styles.actionButtonText}>Supprimer</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, styles.secondaryAction]}
@@ -680,7 +697,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryAction: {
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#a72801ff",
   },
   secondaryAction: {
     backgroundColor: "white",
@@ -689,6 +706,8 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 16,
+    textAlign: "auto",
+    alignContent: "center",
     fontWeight: "bold",
     color: "white",
   },

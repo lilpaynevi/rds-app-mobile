@@ -15,17 +15,16 @@ import {
 } from "react-native";
 import api$ from "@/scripts/fetch.api";
 import api from "@/scripts/fetch.api";
-import { getMyTVs} from "@/requests/tv.requests";
+import { getMyTVs } from "@/requests/tv.requests";
 import { Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList } from "react-native-gesture-handler";
+import { cancelSubscription } from "@/requests/stripe.requests";
 
 const { width } = Dimensions.get("window");
-
+const baseScreens = 5;
 const SubscriptionScreen = () => {
   const { subscription, user } = useAuth();
-  console.log("🚀 ~ SubscriptionScreen ~ subscription:", subscription)
-  console.log("🚀 ~ SubscriptionScreen ~ subscription:", subscription)
   const [refreshing, setRefreshing] = useState(false);
   const [subscriptionData, setSubscriptionData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -35,16 +34,14 @@ const SubscriptionScreen = () => {
   const [selectedTVs, setSelectedTVs] = useState<string[]>([]);
   const [cancelling, setCancelling] = useState(false);
 
-
-
   useEffect(() => {
     loadSubscriptionData();
   }, []);
 
   const toggleTVSelection = (tvId: string) => {
-    setSelectedTVs(prev => {
+    setSelectedTVs((prev) => {
       if (prev.includes(tvId)) {
-        return prev.filter(id => id !== tvId);
+        return prev.filter((id) => id !== tvId);
       } else {
         return [...prev, tvId];
       }
@@ -136,7 +133,6 @@ const SubscriptionScreen = () => {
         `${selectedTVs.length} TV(s) ont été supprimées. Votre abonnement sera annulé le ${formatDate(subscriptionData.currentPeriodEnd)}.`,
         [{ text: "OK", onPress: loadSubscriptionData }]
       );
-
     } catch (error) {
       console.error("❌ Erreur annulation:", error);
       Alert.alert(
@@ -157,67 +153,101 @@ const SubscriptionScreen = () => {
       const getUserTVs = await getMyTVs();
       setTVS(getUserTVs);
 
-      const currentTVCount = getUserTVs.length;
-      const maxScreensAfterCancel = subscriptionData.currentMaxScreens - currentTVCount;
+      const currentTVCount = subscription.find(
+        (it) => it.plan.planType === "MAIN"
+      )?.usedScreens;
 
+      const optionTVCount =
+        Number(
+          subscription.find((it) => it.plan.planType === "MAIN")
+            ?.currentMaxScreens
+        ) - baseScreens;
+
+      const stripeSubscriptionId = subscription.find(
+        (it) => it.plan.planType === "MAIN"
+      )?.stripeSubscriptionId;
+
+      const maxScreensAfterCancel =
+        subscriptionData.currentMaxScreens - currentTVCount;
 
       console.log(`📊 TVs actuelles: ${currentTVCount}`);
       console.log(`📊 Max après annulation: ${maxScreensAfterCancel}`);
 
-      // Si le nombre de TVs dépasse la limite après annulation
-      if (currentTVCount != maxScreensAfterCancel) {
-        const excessCount = currentTVCount - maxScreensAfterCancel;
+      console.log(
+        "🚀 ~ handleCancelSubscription ~ currentTVCount:",
+        currentTVCount
+      );
 
-        Alert.alert(
-          "Trop d'écrans connectés",
-          `Vous avez ${currentTVCount} TV(s) mais votre plan de base permet ${maxScreensAfterCancel} écran(s). Vous devez supprimer ${excessCount} TV(s) avant d'annuler votre abonnement.`,
+      if (optionTVCount > 0) {
+        return Alert.alert(
+          "Vous avez un abonnement option",
+          `Vous avez un abonnement option en cours ! Vous devez réduire vos écrans supplémentaire avant d'annuler votre abonnement principal.`,
           [
             { text: "Annuler", style: "cancel" },
             {
-              text: "Sélectionner les TVs",
-              onPress: () => setDisplayTVSelection(true),
+              text: "Allez vers Modifier ma capacité d'écran",
+              onPress: () => router.navigate("/updateOptionSubscription"),
             },
           ]
         );
-      } else {
-        // Pas de TVs excédentaires, annulation directe
-        Alert.alert(
-          "Annuler l'abonnement",
-          "Êtes-vous sûr de vouloir annuler votre abonnement à la fin de la période ?",
-          [
-            { text: "Non", style: "cancel" },
-            {
-              text: "Oui, annuler",
-              style: "destructive",
-              onPress: async () => {
-                try {
-                  await api.delete("/stripe/subscription/cancel", {
-                    data: {
-                      subscriptionId: subscriptionData.id,
-                      immediate: false,
-                      reason: "user_requested",
-                    },
-                  });
+      }
 
-                  Alert.alert(
-                    "Annulation programmée",
-                    `Votre abonnement sera annulé le ${formatDate(subscriptionData.currentPeriodEnd)}.`,
-                    [{ text: "OK", onPress: loadSubscriptionData }]
-                  );
-                } catch (error) {
-                  Alert.alert("Erreur", "Impossible d'annuler l'abonnement");
-                }
+      // Si le nombre de TVs dépasse la limite après annulation
+      if (typeof currentTVCount === "number") {
+        if (currentTVCount > 0) {
+          const excessCount = currentTVCount - maxScreensAfterCancel;
+
+          Alert.alert(
+            "Ecrans connectés",
+            `Vous avez ${currentTVCount} TV(s) connectés ! Vous devez supprimer ${currentTVCount} TV(s) avant d'annuler votre abonnement.`,
+            [
+              { text: "Annuler", style: "cancel" },
+              {
+                text: "Supprimer des TVs",
+                onPress: () => router.navigate("/home/tv/MyTVScreen"),
               },
-            },
-          ]
-        );
+            ]
+          );
+        } else {
+          Alert.alert(
+            "Annuler l'abonnement",
+            "Êtes-vous sûr de vouloir annuler votre abonnement à la fin de la période ?",
+            [
+              { text: "Non", style: "cancel" },
+              {
+                text: "Oui, annuler",
+                style: "destructive",
+                onPress: async () => {
+                  try {
+                    if (stripeSubscriptionId) {
+                      await cancelSubscription(stripeSubscriptionId);
+
+                      Alert.alert(
+                        "Annulation prise en compte",
+                        `L'annulation de votre abonnement a été pris en compte ! Vous allez recevoir un mail de confirmation`,
+                        [{ text: "OK", onPress: () => router.back() }]
+                      );
+                    } else {
+                      Alert.alert(
+                        "Erreur lors de la requete",
+                        `Une erreur vient de survenir, veuillez réessayez !`,
+                        [{ text: "OK" }]
+                      );
+                    }
+                  } catch (error) {
+                    Alert.alert("Erreur", "Impossible d'annuler l'abonnement");
+                  }
+                },
+              },
+            ]
+          );
+        }
       }
     } catch (error) {
       console.error("❌ Erreur récupération TVs:", error);
       Alert.alert("Erreur", "Impossible de récupérer vos TVs");
     }
   };
-
 
   /**
    * Rendu d'une TV dans la liste
@@ -228,29 +258,25 @@ const SubscriptionScreen = () => {
 
     return (
       <TouchableOpacity
-        style={[
-          styles.tvItem,
-          isSelected && styles.tvItemSelected,
-        ]}
+        style={[styles.tvItem, isSelected && styles.tvItemSelected]}
         onPress={() => toggleTVSelection(item.id)}
         activeOpacity={0.7}
       >
         <View style={styles.tvItemLeft}>
           {/* Checkbox */}
-          <View style={[
-            styles.checkbox,
-            isSelected && styles.checkboxSelected,
-          ]}>
-            {isSelected && (
-              <Ionicons name="checkmark" size={16} color="#fff" />
-            )}
+          <View
+            style={[styles.checkbox, isSelected && styles.checkboxSelected]}
+          >
+            {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
           </View>
 
           {/* Icône TV */}
-          <View style={[
-            styles.tvIcon,
-            isOnline ? styles.tvIconOnline : styles.tvIconOffline,
-          ]}>
+          <View
+            style={[
+              styles.tvIcon,
+              isOnline ? styles.tvIconOnline : styles.tvIconOffline,
+            ]}
+          >
             <Text style={styles.tvIconText}>📺</Text>
           </View>
 
@@ -260,10 +286,12 @@ const SubscriptionScreen = () => {
               {item.name || `TV ${item.code}`}
             </Text>
             <View style={styles.tvMeta}>
-              <View style={[
-                styles.tvStatusDot,
-                { backgroundColor: isOnline ? "#10B981" : "#6B7280" },
-              ]} />
+              <View
+                style={[
+                  styles.tvStatusDot,
+                  { backgroundColor: isOnline ? "#10B981" : "#6B7280" },
+                ]}
+              />
               <Text style={styles.tvStatus}>
                 {isOnline ? "En ligne" : "Hors ligne"}
               </Text>
@@ -287,7 +315,6 @@ const SubscriptionScreen = () => {
     );
   };
 
-
   const loadSubscriptionData = async () => {
     try {
       setLoading(true);
@@ -298,26 +325,25 @@ const SubscriptionScreen = () => {
       );
 
       if (!activeSubscription) {
-        Alert.alert(
-          "Aucun abonnement",
-          "Vous n'avez pas d'abonnement actif",
-          [{ text: "Souscrire", onPress: () => router.push("/PaymentScreen") }]
-        );
+        Alert.alert("Aucun abonnement", "Vous n'avez pas d'abonnement actif", [
+          { text: "Souscrire", onPress: () => router.push("/PaymentScreen") },
+        ]);
         setLoading(false);
         return;
       }
 
       // ✅ Calculer les écrans supplémentaires (addons)
       const screenAbo = subscription?.find(
-        (sub) =>
-          sub.status === "ACTIVE" &&
-          sub.plan.planType === "MAIN"
+        (sub) => sub.status === "ACTIVE" && sub.plan.planType === "MAIN"
       );
 
-      const totalExtraScreens = Number(activeSubscription.currentMaxScreens) - Number(activeSubscription.plan.maxScreens)
+      const totalExtraScreens =
+        Number(activeSubscription.currentMaxScreens) -
+        Number(activeSubscription.plan.maxScreens);
 
       // ✅ Calculer le total d'écrans disponibles
-      const totalMaxScreens = activeSubscription.currentMaxScreens + totalExtraScreens;
+      const totalMaxScreens =
+        activeSubscription.currentMaxScreens + totalExtraScreens;
 
       setSubscriptionData({
         ...activeSubscription,
@@ -351,22 +377,33 @@ const SubscriptionScreen = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "ACTIVE": return "#10B981";
-      case "PAST_DUE": return "#F59E0B";
-      case "CANCELED": return "#EF4444";
-      case "INACTIVE": return "#6B7280";
-      default: return "#6B7280";
+      case "ACTIVE":
+        return "#10B981";
+      case "PAST_DUE":
+        return "#F59E0B";
+      case "CANCELED":
+        return "#EF4444";
+      case "INACTIVE":
+        return "#6B7280";
+      default:
+        return "#6B7280";
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "ACTIVE": return "Actif";
-      case "PAST_DUE": return "Paiement en retard";
-      case "CANCELED": return "Annulé";
-      case "INACTIVE": return "Inactif";
-      case "UNPAID": return "Impayé";
-      default: return status;
+      case "ACTIVE":
+        return "Actif";
+      case "PAST_DUE":
+        return "Paiement en retard";
+      case "CANCELED":
+        return "Annulé";
+      case "INACTIVE":
+        return "Inactif";
+      case "UNPAID":
+        return "Impayé";
+      default:
+        return status;
     }
   };
 
@@ -397,15 +434,28 @@ const SubscriptionScreen = () => {
   };
 
   const handleUpgradeScreens = () => {
-    router.push({
-      pathname: "/OptionPaymentScreen",
-      params: {
-        currentScreens: subscriptionData.currentMaxScreens,
-        usedScreens: subscriptionData.usedScreens,
-      },
-    });
-  };
+    const hasOpionPlan = subscription.find(
+      (it) => it.plan.planType == "OPTION"
+    );
 
+    if (hasOpionPlan) {
+      router.push({
+        pathname: "/updateOptionSubscription",
+        params: {
+          currentScreens: subscriptionData.currentMaxScreens,
+          usedScreens: subscriptionData.usedScreens,
+        },
+      });
+    } else {
+      router.push({
+        pathname: "/OptionPaymentScreen",
+        params: {
+          currentScreens: subscriptionData.currentMaxScreens,
+          usedScreens: subscriptionData.usedScreens,
+        },
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -470,6 +520,12 @@ const SubscriptionScreen = () => {
             </View>
           </View>
 
+          <View style={styles.headerContent}>
+            <Text style={styles.headerSubtitle}>
+              {subscriptionData.plan.description}
+            </Text>
+          </View>
+
           <View style={styles.statusContainer}>
             <View
               style={[
@@ -498,7 +554,8 @@ const SubscriptionScreen = () => {
                   </Text>
                   {subscriptionData.extraScreens > 0 && (
                     <Text style={styles.metricExtra}>
-                      ({subscriptionData.baseScreens} + {subscriptionData.extraScreens} écrans supplémentaires)
+                      ({subscriptionData.baseScreens} +{" "}
+                      {subscriptionData.extraScreens} écrans supplémentaires)
                     </Text>
                   )}
                 </View>
@@ -527,9 +584,7 @@ const SubscriptionScreen = () => {
             <View style={styles.billingHeader}>
               <Text style={styles.billingTitle}>Période actuelle</Text>
               <View>
-                <Text style={styles.billingPrice}>
-                  {totalPrice}€
-                </Text>
+                <Text style={styles.billingPrice}>{totalPrice}€</Text>
                 <Text style={styles.billingInterval}>
                   /{subscriptionData.plan.interval === "year" ? "an" : "mois"}
                 </Text>
@@ -562,12 +617,12 @@ const SubscriptionScreen = () => {
               </Text>
             </View>
 
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={styles.manageButton}
               onPress={handleManageSubscription}
             >
               <Text style={styles.manageButtonText}>Gérer l'abonnement</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
 
@@ -661,9 +716,12 @@ const SubscriptionScreen = () => {
             {/* Header du modal */}
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Sélectionner les TVs à supprimer</Text>
+                <Text style={styles.modalTitle}>
+                  Sélectionner les TVs à supprimer
+                </Text>
                 <Text style={styles.modalSubtitle}>
-                  {myTVS.length} TV(s) connectée(s) • Max après annulation: {subscriptionData?.baseScreens}
+                  {myTVS.length} TV(s) connectée(s) • Max après annulation:{" "}
+                  {subscriptionData?.baseScreens}
                 </Text>
               </View>
               <TouchableOpacity
@@ -679,7 +737,8 @@ const SubscriptionScreen = () => {
               <View style={styles.infoBarLeft}>
                 <Ionicons name="information-circle" size={20} color="#3B82F6" />
                 <Text style={styles.infoBarText}>
-                  Sélectionnez {myTVS.length - subscriptionData?.baseScreens} TV(s) minimum
+                  Sélectionnez {myTVS.length - subscriptionData?.baseScreens}{" "}
+                  TV(s) minimum
                 </Text>
               </View>
               {selectedTVs.length > 0 && (
@@ -748,7 +807,8 @@ const SubscriptionScreen = () => {
                 <TouchableOpacity
                   style={[
                     styles.confirmButton,
-                    (!canProceedWithCancellation() || cancelling) && styles.confirmButtonDisabled,
+                    (!canProceedWithCancellation() || cancelling) &&
+                      styles.confirmButtonDisabled,
                   ]}
                   onPress={confirmCancellation}
                   disabled={!canProceedWithCancellation() || cancelling}
@@ -769,7 +829,6 @@ const SubscriptionScreen = () => {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 };

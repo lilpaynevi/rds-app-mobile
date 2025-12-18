@@ -11,17 +11,37 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.rds.mobile",
       "infoPlist": {
         "NSBonjourServices": [
+          "_tcp.local.",
           "_tcp.local."
         ],
-        "NSLocalNetworkUsageDescription": "Allow RDS Screen to discover devices on the local network."
+        "NSLocalNetworkUsageDescription": "Allow RDS Screen to discover devices on the local network.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.developer.networking.multicast": true
       }
     },
     "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "*.rdsconnect.com",
+              "pathPrefix": "/reset-password"
+            },
+            {
+              "scheme": "rdsconnect"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/rds-logo-black.png",
         "backgroundColor": "#0A192F"

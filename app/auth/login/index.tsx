@@ -191,14 +191,14 @@ const LoginScreen = () => {
             </View>
 
             {/* Mot de passe oublié */}
-            {/* <TouchableOpacity
+            <TouchableOpacity
               style={styles.forgotPassword}
-              onPress={() => router.navigate("/auth/login")}
+              onPress={() => router.navigate("/home/profile/subscription/forgot-password")}
             >
               <Text style={styles.forgotPasswordText}>
                 Mot de passe oublié ?
               </Text>
-            </TouchableOpacity> */}
+            </TouchableOpacity>
 
             {/* Bouton connexion */}
             <TouchableOpacity
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   forgotPassword: {
-    alignSelf: "flex-end",
+    alignSelf: "center",
     marginBottom: 30,
   },
   forgotPasswordText: {

@@ -40,7 +40,6 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
   const [formData, setFormData] = useState({
     id: data?.id || "",
     name: data?.name || "",
-    location: data?.location || "",
     description: data?.description || "",
     resolution: data?.resolution || "HD_1080P",
     orientation: data?.orientation || "LANDSCAPE",
@@ -112,10 +111,10 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
       return;
     }
 
-    if (!formData.location.trim()) {
-      Alert.alert("Erreur", "La localisation est requise");
-      return;
-    }
+    // if (!formData.location.trim()) {
+    //   Alert.alert("Erreur", "La localisation est requise");
+    //   return;
+    // }
 
     setIsLoading(true);
 
@@ -288,7 +287,7 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
                 />
               </View>
 
-              <View style={styles.inputContainer}>
+              {/* <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Localisation *</Text>
                 <TextInput
                   style={styles.textInput}
@@ -297,7 +296,7 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
                   placeholder="Ex: Salon principal"
                   placeholderTextColor="#9CA3AF"
                 />
-              </View>
+              </View> */}
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Description</Text>

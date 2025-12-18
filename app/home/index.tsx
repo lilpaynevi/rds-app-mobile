@@ -19,6 +19,7 @@ import { router } from "expo-router";
 import { useAuth } from "@/scripts/AuthContext";
 import api from "@/scripts/fetch.api";
 import { socket } from "@/scripts/socket.io";
+import { dissociatedUser } from "@/requests/tv.requests";
 
 interface Television {
   id: string;
@@ -79,7 +80,7 @@ const HomeScreen = () => {
     },
 
     {
-      id: "4",
+      id: "3",
       title: "Gérer mes télévisions",
       icon: "settings",
       color: "#6b983dff",
@@ -165,7 +166,6 @@ const HomeScreen = () => {
     );
   };
 
-  // Actions rapides sur une TV
   const handleTVLongPress = (tv: Television) => {
     const actions = [
       // { text: "Contrôler", onPress: () => handleTVPress(tv) },
@@ -204,14 +204,9 @@ const HomeScreen = () => {
   // Supprimer une TV
   const deleteTV = async (tvId: string) => {
     try {
-      const deleteTVrq = await api.get(
-        "/televisions/" + tvId + "/user/dissociated"
-      );
-      if (deleteTVrq) {
+      const deleteTVrq = await dissociatedUser(tvId);
+      if (deleteTVrq.success === true) {
         setTelevisions((prev) => prev.filter((tv) => tv.id !== tvId));
-
-        socket.emit("leave-room", { roomName: "tv:" + tvId, tvId });
-
         Alert.alert("✅", "Télévision supprimée");
       }
     } catch (error) {

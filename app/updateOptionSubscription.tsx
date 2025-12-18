@@ -560,7 +560,7 @@ const UpdateScreenCapacityScreen = () => {
         </TouchableOpacity>
 
         {/* Cancel Option */}
-        {currentQuantity > 0 && (
+        {/* {currentQuantity > 0 && (
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={() => {
@@ -573,7 +573,6 @@ const UpdateScreenCapacityScreen = () => {
                     text: "Supprimer",
                     style: "destructive",
                     onPress: () => {
-                      // Logique pour supprimer l'option
                       router.push("/cancel-option");
                     },
                   },
@@ -585,7 +584,7 @@ const UpdateScreenCapacityScreen = () => {
               🗑️ Supprimer cette option complètement
             </Text>
           </TouchableOpacity>
-        )}
+        )} */}
       </View>
     </ScrollView>
   );
