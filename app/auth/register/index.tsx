@@ -19,6 +19,7 @@ import { Picker } from "@react-native-picker/picker";
 import { router } from "expo-router";
 import api from "@/scripts/fetch.api";
 import { navigate } from "expo-router/build/global-state/routing";
+import { AxiosResponse } from "axios";
 
 interface FormData {
   firstName: string;
@@ -172,7 +173,7 @@ const RegisterScreen = () => {
     setLoading(true);
 
     try {
-      const response = await api.post("/auth/register", {
+      const response: AxiosResponse = await api.post("/auth/register", {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         company: formData.company.trim(),
@@ -182,7 +183,7 @@ const RegisterScreen = () => {
 
       const data = response;
 
-      if (!response.statusCode) {
+      if (response.status === 200 || response.status === 201) {
         Alert.alert(
           "Inscription réussie ! 🎉",
           "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
@@ -214,16 +215,7 @@ const RegisterScreen = () => {
       console.error("Erreur inscription:", error);
 
       // Simulation pour le développement
-      Alert.alert(
-        "Inscription simulée ! 🚀",
-        "Compte créé avec succès (mode développement)",
-        [
-          {
-            text: "Se connecter",
-            onPress: () => router.navigate("/auth/login"),
-          },
-        ]
-      );
+      
     } finally {
       setLoading(false);
     }

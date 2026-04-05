@@ -6,423 +6,445 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  Switch,
   Alert,
 } from "react-native";
 import {
-  MaterialIcons,
   Ionicons,
   MaterialCommunityIcons,
-  FontAwesome5,
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useLocalSearchParams } from "expo-router";
 import EditTvModal from "./EditModal";
 import { dissociatedUser } from "@/requests/tv.requests";
 
+// ─── Palette (same as HomeScreen) ────────────────────────────────────────────
+const C = {
+  bgDeep: "#0A0E27",
+  bgMid: "#0F1642",
+  accent: "#4F8EF7",
+  accentDim: "rgba(79,142,247,0.12)",
+  accentBorder: "rgba(79,142,247,0.28)",
+  cyan: "#00E5FF",
+  cyanDim: "rgba(0,229,255,0.10)",
+  cyanBorder: "rgba(0,229,255,0.25)",
+  success: "#00E676",
+  successDim: "rgba(0,230,118,0.12)",
+  successBorder: "rgba(0,230,118,0.28)",
+  error: "#FF5252",
+  errorDim: "rgba(255,82,82,0.12)",
+  errorBorder: "rgba(255,82,82,0.28)",
+  warning: "#FFB74D",
+  warningDim: "rgba(255,183,77,0.12)",
+  warningBorder: "rgba(255,183,77,0.28)",
+  purple: "#7C4DFF",
+  purpleDim: "rgba(124,77,255,0.12)",
+  purpleBorder: "rgba(124,77,255,0.28)",
+  white: "#FFFFFF",
+  white80: "rgba(255,255,255,0.80)",
+  white60: "rgba(255,255,255,0.60)",
+  white40: "rgba(255,255,255,0.40)",
+  white20: "rgba(255,255,255,0.20)",
+  white10: "rgba(255,255,255,0.08)",
+  white05: "rgba(255,255,255,0.04)",
+  border: "rgba(255,255,255,0.09)",
+};
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; dim: string; border: string }> = {
+  ONLINE: { label: "En ligne", color: C.success, dim: C.successDim, border: C.successBorder },
+  PLAYING: { label: "En lecture", color: C.warning, dim: C.warningDim, border: C.warningBorder },
+  OFFLINE: { label: "Hors ligne", color: C.error, dim: C.errorDim, border: C.errorBorder },
+};
+
 interface TvDetailsProps {
-  data: any; // Remplacez par votre interface TV
+  data: any;
 }
 
 const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
-  const { tvId, item } = useLocalSearchParams();
-
-  // Désérialiser les données
+  const { item } = useLocalSearchParams();
   const data = item ? JSON.parse(item as string) : null;
 
-  // Formatage des données
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("fr-FR", {
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [currentData, setCurrentData] = useState(data);
+
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("fr-FR", {
       day: "numeric",
       month: "long",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "ONLINE":
-        return "#10B981";
-      case "OFFLINE":
-        return "#EF4444";
-      default:
-        return "#F59E0B";
-    }
-  };
 
   const getResolutionIcon = (resolution: string) => {
     switch (resolution) {
-      case "HD_1080P":
-        return "high-definition";
-      case "4K":
-        return "video-4k";
-      default:
-        return "television";
+      case "HD_1080P": return "high-definition";
+      case "4K": return "video-4k";
+      default: return "television";
     }
   };
 
   const getPriorityColor = (priority: number) => {
-    if (priority >= 8) return "#EF4444"; // Rouge - Très haute
-    if (priority >= 6) return "#F59E0B"; // Orange - Haute
-    if (priority >= 4) return "#3B82F6"; // Bleu - Moyenne
-    return "#6B7280"; // Gris - Basse
+    if (priority >= 8) return C.error;
+    if (priority >= 6) return C.warning;
+    if (priority >= 4) return C.accent;
+    return C.white40;
   };
-
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [currentData, setCurrentData] = useState(data);
 
   const handleEditSave = (updatedData: any) => {
     setCurrentData(updatedData);
-    // Ici vous pouvez faire un appel API pour sauvegarder
     console.log("Données mises à jour:", updatedData);
   };
 
+  const cfg = STATUS_CONFIG[data?.status] ?? STATUS_CONFIG["OFFLINE"];
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
+    <LinearGradient colors={[C.bgDeep, C.bgMid, "#0D1B4B"]} style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" />
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* ── Header ── */}
+        <LinearGradient
+          colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.02)"]}
+          style={s.header}
+        >
+          <View style={s.headerRow}>
+            <TouchableOpacity
+              style={s.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={18} color={C.white80} />
+            </TouchableOpacity>
 
-      {/* Header avec gradient */}
-      <LinearGradient colors={["#1F2937", "#374151"]} style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle}>{data.name}</Text>
-            <View style={styles.statusContainer}>
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: getStatusColor(data.status) },
-                ]}
-              />
-              <Text style={styles.statusText}>{data.status}</Text>
-              <Text style={styles.codeConnection}>#{data.codeConnection}</Text>
+            <View style={{ flex: 1, marginHorizontal: 12 }}>
+              <Text style={s.headerTitle}>{data.name}</Text>
+              <View style={s.statusRow}>
+                <View style={[s.statusDot, { backgroundColor: cfg.color }]} />
+                <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+                <Text style={s.codeConnection}>#{data.codeConnection}</Text>
+              </View>
             </View>
+
+            <TouchableOpacity
+              style={s.editButton}
+              onPress={() => setIsEditModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={18} color={C.accent} />
+            </TouchableOpacity>
           </View>
+        </LinearGradient>
 
-          <TouchableOpacity
-            onPress={() => setIsEditModalVisible(true)}
-            style={styles.settingsButton}
-          >
-            <MaterialIcons name="edit" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Informations principales */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <MaterialCommunityIcons
-              name="television"
-              size={24}
-              color="#3B82F6"
-            />
-            <Text style={styles.cardTitle}>Informations générales</Text>
-          </View>
-
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <MaterialCommunityIcons
-                name="identifier"
-                size={20}
-                color="#6B7280"
-              />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Device ID</Text>
-                <Text style={styles.infoValue}>{data.deviceId}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoItem}>
-              <MaterialIcons name="location-on" size={20} color="#6B7280" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Localisation</Text>
-                <Text style={styles.infoValue}>{data.location}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoItem}>
-              <MaterialCommunityIcons
-                name={getResolutionIcon(data.resolution)}
-                size={20}
-                color="#6B7280"
-              />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Résolution</Text>
-                <Text style={styles.infoValue}>
-                  {data.resolution.replace("_", " ")}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoItem}>
-              <MaterialCommunityIcons
-                name={
-                  data.orientation === "LANDSCAPE" ? "tablet" : "tablet-ipad"
-                }
-                size={20}
-                color="#6B7280"
-              />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Orientation</Text>
-                <Text style={styles.infoValue}>{data.orientation}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Paramètres de lecture 
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <MaterialIcons name="play-arrow" size={24} color="#10B981" />
-            <Text style={styles.cardTitle}>Paramètres de lecture</Text>
-          </View>
-
-          <View style={styles.settingsContainer}>
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <MaterialIcons name="volume-up" size={20} color="#6B7280" />
-                <Text style={styles.settingLabel}>Volume: {data.volume}%</Text>
-              </View>
-              <View style={styles.volumeBar}>
-                <View
-                  style={[styles.volumeProgress, { width: `${data.volume}%` }]}
-                />
-              </View>
-            </View>
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <MaterialIcons name="autorenew" size={20} color="#6B7280" />
-                <Text style={styles.settingLabel}>Lecture automatique</Text>
-              </View>
-              <Switch
-                value={data.autoPlay}
-                trackColor={{ false: "#E5E7EB", true: "#DBEAFE" }}
-                thumbColor={data.autoPlay ? "#3B82F6" : "#9CA3AF"}
-              />
-            </View>
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <MaterialIcons name="loop" size={20} color="#6B7280" />
-                <Text style={styles.settingLabel}>Boucle</Text>
-              </View>
-              <Switch
-                value={data.loop}
-                trackColor={{ false: "#E5E7EB", true: "#DBEAFE" }}
-                thumbColor={data.loop ? "#3B82F6" : "#9CA3AF"}
-              />
-            </View>
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <MaterialCommunityIcons
-                  name="transition"
-                  size={20}
-                  color="#6B7280"
-                />
-                <Text style={styles.settingLabel}>Transition</Text>
-              </View>
-              <View style={styles.transitionBadge}>
-                <Text style={styles.transitionText}>{data.transition}</Text>
-              </View>
-            </View>
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingInfo}>
-                <MaterialIcons name="refresh" size={20} color="#6B7280" />
-                <Text style={styles.settingLabel}>
-                  Taux de rafraîchissement
-                </Text>
-              </View>
-              <Text style={styles.settingValue}>{data.refreshRate} Hz</Text>
-            </View>
-          </View>
-        </View>*/}
-
-        {/* Playlists assignées */}
-        {data.playlists && data.playlists.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <MaterialCommunityIcons
-                name="playlist-play"
-                size={24}
-                color="#8B5CF6"
-              />
-              <Text style={styles.cardTitle}>
-                Playlists assignées ({data.playlists.length})
-              </Text>
-            </View>
-
-            {data.playlists.map((item: any, index: number) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.playlistItem}
-                onPress={() =>
-                  router.navigate(`/home/playlists/view/${item.playlist.id}`)
-                }
-              >
-                <View style={styles.playlistHeader}>
-                  <View style={styles.playlistInfo}>
-                    <Text style={styles.playlistName}>
-                      {item.playlist.name}
-                    </Text>
-                    <Text style={styles.playlistDescription}>
-                      {item.playlist.description}
-                    </Text>
-                  </View>
-
-                  <View style={styles.playlistMeta}>
-                    <View
-                      style={[
-                        styles.priorityBadge,
-                        { backgroundColor: getPriorityColor(item.priority) },
-                      ]}
-                    >
-                      <Text style={styles.priorityText}>P{item.priority}</Text>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color="#9CA3AF"
-                    />
-                  </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={s.scroll}
+        >
+          {/* ── Informations générales ── */}
+          <View style={s.section}>
+            <LinearGradient
+              colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
+              style={[s.card, { borderColor: C.accentBorder }]}
+            >
+              <View style={s.cardHeader}>
+                <View style={[s.cardIconWrap, { backgroundColor: C.accentDim, borderColor: C.accentBorder }]}>
+                  <Ionicons name="tv-outline" size={18} color={C.accent} />
                 </View>
+                <Text style={s.cardTitle}>Informations générales</Text>
+              </View>
 
-                <View style={styles.playlistFooter}>
-                  <View style={styles.playlistStatus}>
-                    <View
-                      style={[
-                        styles.statusDot,
-                        {
-                          backgroundColor: item.playlist.isActive
-                            ? "#10B981"
-                            : "#EF4444",
-                          width: 8,
-                          height: 8,
-                        },
-                      ]}
-                    />
-                    <Text style={styles.playlistStatusText}>
-                      {item.playlist.isActive ? "Active" : "Inactive"}
-                    </Text>
-                  </View>
-
-                  <View style={styles.playlistModes}>
-                    {item.playlist.shuffleMode && (
-                      <View style={styles.modeBadge}>
-                        <MaterialIcons
-                          name="shuffle"
-                          size={12}
-                          color="#6B7280"
-                        />
-                        <Text style={styles.modeText}>Aléatoire</Text>
-                      </View>
-                    )}
-                    <View style={styles.modeBadge}>
-                      <MaterialIcons
-                        name={
-                          item.playlist.repeatMode === "LOOP"
-                            ? "repeat"
-                            : "repeat-one"
-                        }
-                        size={12}
-                        color="#6B7280"
-                      />
-                      <Text style={styles.modeText}>
-                        {item.playlist.repeatMode}
-                      </Text>
+              <View style={s.infoGrid}>
+                {data.deviceId ? (
+                  <View style={s.infoItem}>
+                    <Ionicons name="finger-print-outline" size={18} color={C.white40} />
+                    <View style={s.infoContent}>
+                      <Text style={s.infoLabel}>Device ID</Text>
+                      <Text style={s.infoValue}>{data.deviceId}</Text>
                     </View>
                   </View>
+                ) : null}
 
-                  <Text style={styles.assignedDate}>
-                    Assignée le {formatDate(item.assignedAt)}
+                {data.location ? (
+                  <View style={s.infoItem}>
+                    <Ionicons name="location-outline" size={18} color={C.white40} />
+                    <View style={s.infoContent}>
+                      <Text style={s.infoLabel}>Localisation</Text>
+                      <Text style={s.infoValue}>{data.location}</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                {data.ipAddress ? (
+                  <View style={s.infoItem}>
+                    <Ionicons name="wifi-outline" size={18} color={C.white40} />
+                    <View style={s.infoContent}>
+                      <Text style={s.infoLabel}>Adresse IP</Text>
+                      <Text style={s.infoValue}>{data.ipAddress}</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                {data.resolution ? (
+                  <View style={s.infoItem}>
+                    <MaterialCommunityIcons
+                      name={getResolutionIcon(data.resolution) as any}
+                      size={18}
+                      color={C.white40}
+                    />
+                    <View style={s.infoContent}>
+                      <Text style={s.infoLabel}>Résolution</Text>
+                      <Text style={s.infoValue}>{data.resolution.replace("_", " ")}</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                {data.orientation ? (
+                  <View style={s.infoItem}>
+                    <MaterialCommunityIcons
+                      name={data.orientation === "LANDSCAPE" ? "tablet" : ("tablet-ipad" as any)}
+                      size={18}
+                      color={C.white40}
+                    />
+                    <View style={s.infoContent}>
+                      <Text style={s.infoLabel}>Orientation</Text>
+                      <Text style={s.infoValue}>{data.orientation}</Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* ── Playlists assignées ── */}
+          {data.playlists && data.playlists.length > 0 && (
+            <View style={s.section}>
+              <LinearGradient
+                colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
+                style={[s.card, { borderColor: C.purpleBorder }]}
+              >
+                <View style={s.cardHeader}>
+                  <View style={[s.cardIconWrap, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}>
+                    <Ionicons name="list-outline" size={18} color={C.purple} />
+                  </View>
+                  <Text style={s.cardTitle}>
+                    Playlists assignées ({data.playlists.length})
                   </Text>
                 </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
 
-        {/* Métadonnées */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <MaterialIcons name="info-outline" size={24} color="#6B7280" />
-            <Text style={styles.cardTitle}>Métadonnées</Text>
-          </View>
+                <View style={{ gap: 10 }}>
+                  {data.playlists.map((pl: any) => (
+                    <TouchableOpacity
+                      key={pl.id}
+                      onPress={() =>
+                        router.navigate(`/home/playlists/view/${pl.playlist.id}`)
+                      }
+                      activeOpacity={0.75}
+                    >
+                      <LinearGradient
+                        colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
+                        style={[s.playlistItem, { borderColor: C.border }]}
+                      >
+                        {/* Top bar coloured by active state */}
+                        <View
+                          style={[
+                            s.playlistTopBar,
+                            {
+                              backgroundColor: pl.playlist.isActive
+                                ? C.success
+                                : C.error,
+                            },
+                          ]}
+                        />
 
-          <View style={styles.metadataContainer}>
-            <View style={styles.metadataItem}>
-              <Text style={styles.metadataLabel}>Créée le</Text>
-              <Text style={styles.metadataValue}>
-                {formatDate(data.createdAt)}
-              </Text>
+                        <View style={s.playlistBody}>
+                          {/* Name + priority + chevron */}
+                          <View style={s.playlistHeaderRow}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={s.playlistName}>{pl.playlist.name}</Text>
+                              {pl.playlist.description ? (
+                                <Text style={s.playlistDesc} numberOfLines={1}>
+                                  {pl.playlist.description}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <View style={s.playlistRight}>
+                              <View
+                                style={[
+                                  s.priorityBadge,
+                                  {
+                                    backgroundColor: getPriorityColor(pl.priority) + "22",
+                                    borderColor: getPriorityColor(pl.priority) + "55",
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    s.priorityText,
+                                    { color: getPriorityColor(pl.priority) },
+                                  ]}
+                                >
+                                  P{pl.priority}
+                                </Text>
+                              </View>
+                              <Ionicons name="chevron-forward-outline" size={14} color={C.white20} />
+                            </View>
+                          </View>
+
+                          {/* Footer */}
+                          <View style={s.playlistFooter}>
+                            <View
+                              style={[
+                                s.statusPill,
+                                {
+                                  backgroundColor: pl.playlist.isActive
+                                    ? C.successDim
+                                    : C.errorDim,
+                                  borderColor: pl.playlist.isActive
+                                    ? C.successBorder
+                                    : C.errorBorder,
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  s.statusDot,
+                                  {
+                                    backgroundColor: pl.playlist.isActive
+                                      ? C.success
+                                      : C.error,
+                                  },
+                                ]}
+                              />
+                              <Text
+                                style={[
+                                  s.statusPillText,
+                                  {
+                                    color: pl.playlist.isActive
+                                      ? C.success
+                                      : C.error,
+                                  },
+                                ]}
+                              >
+                                {pl.playlist.isActive ? "Active" : "Inactive"}
+                              </Text>
+                            </View>
+
+                            {pl.playlist.shuffleMode && (
+                              <View style={[s.modeBadge, { borderColor: C.border }]}>
+                                <Ionicons name="shuffle-outline" size={11} color={C.white40} />
+                                <Text style={s.modeText}>Aléatoire</Text>
+                              </View>
+                            )}
+
+                            <View style={[s.modeBadge, { borderColor: C.border }]}>
+                              <Ionicons
+                                name={
+                                  pl.playlist.repeatMode === "LOOP"
+                                    ? "repeat-outline"
+                                    : "repeat-outline"
+                                }
+                                size={11}
+                                color={C.white40}
+                              />
+                              <Text style={s.modeText}>{pl.playlist.repeatMode}</Text>
+                            </View>
+
+                            <Text style={s.assignedDate}>
+                              {formatDate(pl.assignedAt)}
+                            </Text>
+                          </View>
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </LinearGradient>
             </View>
+          )}
 
-            <View style={styles.metadataItem}>
-              <Text style={styles.metadataLabel}>Dernière modification</Text>
-              <Text style={styles.metadataValue}>
-                {formatDate(data.updatedAt)}
-              </Text>
-            </View>
-
-            {data.lastSeen && (
-              <View style={styles.metadataItem}>
-                <Text style={styles.metadataLabel}>Dernière activité</Text>
-                <Text style={styles.metadataValue}>
-                  {formatDate(data.lastSeen)}
-                </Text>
+          {/* ── Métadonnées ── */}
+          <View style={s.section}>
+            <LinearGradient
+              colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
+              style={[s.card, { borderColor: C.border }]}
+            >
+              <View style={s.cardHeader}>
+                <View style={[s.cardIconWrap, { backgroundColor: C.cyanDim, borderColor: C.cyanBorder }]}>
+                  <Ionicons name="information-circle-outline" size={18} color={C.cyan} />
+                </View>
+                <Text style={s.cardTitle}>Métadonnées</Text>
               </View>
-            )}
+
+              <View style={s.metaGrid}>
+                <View style={s.metaRow}>
+                  <Text style={s.metaLabel}>Créée le</Text>
+                  <Text style={s.metaValue}>{formatDate(data.createdAt)}</Text>
+                </View>
+                <View style={s.metaDivider} />
+                <View style={s.metaRow}>
+                  <Text style={s.metaLabel}>Dernière modification</Text>
+                  <Text style={s.metaValue}>{formatDate(data.updatedAt)}</Text>
+                </View>
+                {data.lastSeen && (
+                  <>
+                    <View style={s.metaDivider} />
+                    <View style={s.metaRow}>
+                      <Text style={s.metaLabel}>Dernière activité</Text>
+                      <Text style={s.metaValue}>{formatDate(data.lastSeen)}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </LinearGradient>
           </View>
-        </View>
 
-        {/* Actions rapides */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryAction]}
-            onPress={() => {
-              Alert.alert(
-                "Supprimer la télévision",
-                `Êtes-vous sûr de vouloir supprimer "${data.name}" ?`,
-                [
-                  { text: "Annuler", style: "cancel" },
-                  {
-                    text: "Supprimer",
-                    style: "destructive",
-                    onPress: async () => {
-                      const pp = await dissociatedUser(data.id);
+          {/* ── Actions ── */}
+          <View style={[s.section, { flexDirection: "row", gap: 12 }]}>
+            {/* Supprimer */}
+            <TouchableOpacity
+              style={{ flex: 1, borderRadius: 14, overflow: "hidden" }}
+              activeOpacity={0.8}
+              onPress={() => {
+                Alert.alert(
+                  "Supprimer la télévision",
+                  `Êtes-vous sûr de vouloir supprimer "${data.name}" ?`,
+                  [
+                    { text: "Annuler", style: "cancel" },
+                    {
+                      text: "Supprimer",
+                      style: "destructive",
+                      onPress: async () => {
+                        await dissociatedUser(data.id);
+                        router.back();
+                      },
                     },
-                  },
-                ]
-              );
-            }}
-          >
-            <MaterialIcons name="restore-from-trash" size={20} color="white" />
-            <Text style={styles.actionButtonText}>Supprimer</Text>
-          </TouchableOpacity>
+                  ],
+                );
+              }}
+            >
+              <LinearGradient
+                colors={[C.errorDim, "rgba(255,82,82,0.06)"]}
+                style={[s.actionBtn, { borderColor: C.errorBorder }]}
+              >
+                <Ionicons name="trash-outline" size={18} color={C.error} />
+                <Text style={[s.actionBtnText, { color: C.error }]}>Supprimer</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryAction]}
-            onPress={() => setIsEditModalVisible(true)}
-          >
-            <MaterialIcons name="edit" size={20} color="#3B82F6" />
-            <Text style={[styles.actionButtonText, { color: "#3B82F6" }]}>
-              Modifier
-            </Text>
-          </TouchableOpacity>
+            {/* Modifier */}
+            <TouchableOpacity
+              style={{ flex: 1, borderRadius: 14, overflow: "hidden" }}
+              activeOpacity={0.8}
+              onPress={() => setIsEditModalVisible(true)}
+            >
+              <LinearGradient
+                colors={[C.accentDim, "rgba(79,142,247,0.06)"]}
+                style={[s.actionBtn, { borderColor: C.accentBorder }]}
+              >
+                <Ionicons name="create-outline" size={18} color={C.accent} />
+                <Text style={[s.actionBtnText, { color: C.accent }]}>Modifier</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
 
           <EditTvModal
             visible={isEditModalVisible}
@@ -430,286 +452,251 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
             onClose={() => setIsEditModalVisible(false)}
             onSave={handleEditSave}
           />
-        </View>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F3F4F6",
-  },
+const s = StyleSheet.create({
+  // Header
   header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    marginHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+    padding: 16,
   },
-  headerContent: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   backButton: {
-    padding: 8,
-  },
-  headerInfo: {
-    flex: 1,
-    marginHorizontal: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "white",
-    textAlign: "center",
-  },
-  statusContainer: {
-    flexDirection: "row",
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(79,142,247,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(79,142,247,0.28)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 4,
+    gap: 6,
   },
   statusDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
-    marginRight: 6,
   },
   statusText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "700",
   },
   codeConnection: {
-    color: "#D1D5DB",
-    fontSize: 12,
-    marginLeft: 8,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.40)",
+    marginLeft: 4,
   },
-  settingsButton: {
-    padding: 8,
-  },
-  scrollView: {
-    flex: 1,
-  },
+
+  // Scroll
+  scroll: { paddingBottom: 50, paddingTop: 4 },
+
+  // Section
+  section: { paddingHorizontal: 16, marginBottom: 14 },
+
+  // Card
   card: {
-    backgroundColor: "white",
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 18,
+    gap: 16,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    gap: 10,
+  },
+  cardIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
-  infoGrid: {
-    gap: 16,
-  },
+
+  // Info items
+  infoGrid: { gap: 14 },
   infoItem: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
-  infoContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
+  infoContent: { flex: 1 },
   infoLabel: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    fontWeight: "500",
+    fontSize: 10,
+    color: "rgba(255,255,255,0.40)",
+    fontWeight: "600",
     textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   infoValue: {
-    fontSize: 16,
-    color: "#1F2937",
+    fontSize: 15,
+    color: "#FFFFFF",
     fontWeight: "600",
     marginTop: 2,
   },
-  settingsContainer: {
-    gap: 16,
-  },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  settingInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  settingLabel: {
-    fontSize: 16,
-    color: "#374151",
-    marginLeft: 8,
-    flex: 1,
-  },
-  settingValue: {
-    fontSize: 16,
-    color: "#6B7280",
-    fontWeight: "600",
-  },
-  volumeBar: {
-    flex: 1,
-    height: 4,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 2,
-    marginLeft: 12,
-  },
-  volumeProgress: {
-    height: "100%",
-    backgroundColor: "#3B82F6",
-    borderRadius: 2,
-  },
-  transitionBadge: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  transitionText: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "600",
-  },
+
+  // Playlist item
   playlistItem: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
   },
-  playlistHeader: {
+  playlistTopBar: {
+    height: 3,
+    width: "100%",
+    opacity: 0.8,
+  },
+  playlistBody: {
+    padding: 14,
+    gap: 10,
+  },
+  playlistHeaderRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  playlistInfo: {
-    flex: 1,
+    gap: 10,
   },
   playlistName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#1F2937",
-  },
-  playlistDescription: {
     fontSize: 14,
-    color: "#6B7280",
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  playlistDesc: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.40)",
     marginTop: 2,
   },
-  playlistMeta: {
+  playlistRight: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 12,
+    gap: 8,
   },
   priorityBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 8,
-    marginRight: 8,
+    borderWidth: 1,
   },
   priorityText: {
-    color: "white",
     fontSize: 10,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   playlistFooter: {
-    gap: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
   },
-  playlistStatus: {
+  statusPill: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  playlistStatusText: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginLeft: 6,
-  },
-  playlistModes: {
-    flexDirection: "row",
-    gap: 8,
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   modeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "rgba(255,255,255,0.06)",
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: 1,
+    gap: 3,
   },
   modeText: {
     fontSize: 10,
-    color: "#6B7280",
-    marginLeft: 2,
+    color: "rgba(255,255,255,0.40)",
   },
   assignedDate: {
-    fontSize: 12,
-    color: "#9CA3AF",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.30)",
     fontStyle: "italic",
+    marginLeft: "auto",
   },
-  metadataContainer: {
-    gap: 12,
-  },
-  metadataItem: {
+
+  // Metadata
+  metaGrid: { gap: 0 },
+  metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingVertical: 10,
   },
-  metadataLabel: {
-    fontSize: 14,
-    color: "#6B7280",
+  metaDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.07)",
   },
-  metadataValue: {
-    fontSize: 14,
-    color: "#1F2937",
+  metaLabel: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.40)",
+  },
+  metaValue: {
+    fontSize: 13,
+    color: "#FFFFFF",
     fontWeight: "600",
-  },
-  actionsContainer: {
-    flexDirection: "row",
-    gap: 12,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 32,
-  },
-  actionButton: {
+    textAlign: "right",
     flex: 1,
+    marginLeft: 12,
+  },
+
+  // Actions
+  actionBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
     gap: 8,
   },
-  primaryAction: {
-    backgroundColor: "#a72801ff",
-  },
-  secondaryAction: {
-    backgroundColor: "white",
-    borderWidth: 2,
-    borderColor: "#3B82F6",
-  },
-  actionButtonText: {
-    fontSize: 16,
-    textAlign: "auto",
-    alignContent: "center",
-    fontWeight: "bold",
-    color: "white",
+  actionBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
 

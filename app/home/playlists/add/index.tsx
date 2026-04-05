@@ -1,5 +1,4 @@
-// screens/AddPlaylistScreen.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -8,130 +7,386 @@ import {
   TextInput,
   ScrollView,
   Alert,
-  Image,
   FlatList,
-  Platform,
   Switch,
   ActivityIndicator,
   Modal,
+  Animated,
+  Dimensions,
+  Platform,
 } from "react-native";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { getMyTVs } from "@/requests/tv.requests";
 import { createPlaylist } from "@/requests/playlists.requests";
 import { socket } from "@/scripts/socket.io";
-import { LinearGradient } from "expo-linear-gradient";
-import * as VideoThumbnails from "expo-video-thumbnails";
-import * as DocumentPicker from "expo-document-picker";
-import { SafeAreaView } from "react-native-safe-area-context";
 import ScheduleForm from "@/components/schedules/SchelduleForm";
 import AddMediaForm from "@/components/medias/AddMediaForm";
 
+const { width } = Dimensions.get("window");
+
+// ─── Palette ──────────────────────────────────────────────────────────────────
+const C = {
+  bgDeep: "#0A0E27",
+  bgMid: "#0F1642",
+  bgCard: "rgba(255,255,255,0.05)",
+  accent: "#4F8EF7",
+  accentDim: "rgba(79,142,247,0.12)",
+  accentBorder: "rgba(79,142,247,0.28)",
+  cyan: "#00E5FF",
+  cyanDim: "rgba(0,229,255,0.10)",
+  cyanBorder: "rgba(0,229,255,0.25)",
+  success: "#00E676",
+  successDim: "rgba(0,230,118,0.12)",
+  successBorder: "rgba(0,230,118,0.28)",
+  error: "#FF5252",
+  errorDim: "rgba(255,82,82,0.10)",
+  errorBorder: "rgba(255,82,82,0.28)",
+  warning: "#FFB74D",
+  warningDim: "rgba(255,183,77,0.10)",
+  warningBorder: "rgba(255,183,77,0.28)",
+  purple: "#7C4DFF",
+  purpleDim: "rgba(124,77,255,0.12)",
+  white: "#FFFFFF",
+  white80: "rgba(255,255,255,0.80)",
+  white60: "rgba(255,255,255,0.60)",
+  white40: "rgba(255,255,255,0.40)",
+  white20: "rgba(255,255,255,0.20)",
+  white10: "rgba(255,255,255,0.08)",
+  white05: "rgba(255,255,255,0.04)",
+  border: "rgba(255,255,255,0.09)",
+};
+
+// ─── SECTION CARD ─────────────────────────────────────────────────────────────
+function SectionCard({
+  icon,
+  title,
+  iconColor = C.accent,
+  children,
+}: {
+  icon: string;
+  title: string;
+  iconColor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={s.section}>
+      <View style={s.sectionHeader}>
+        <View
+          style={[
+            s.sectionIconWrap,
+            {
+              backgroundColor: iconColor + "18",
+              borderColor: iconColor + "40",
+            },
+          ]}
+        >
+          <Ionicons name={icon as any} size={16} color={iconColor} />
+        </View>
+        <Text style={s.sectionTitle}>{title}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+// ─── SUMMARY ROW ──────────────────────────────────────────────────────────────
+function SummaryRow({
+  icon,
+  label,
+  value,
+  color = C.accent,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <View style={s.summaryRow}>
+      <View
+        style={[
+          s.summaryIcon,
+          { backgroundColor: color + "15", borderColor: color + "30" },
+        ]}
+      >
+        <Ionicons name={icon as any} size={14} color={color} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.summaryLabel}>{label}</Text>
+        <Text style={s.summaryValue}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── TV MODAL ─────────────────────────────────────────────────────────────────
+function TVModal({
+  visible,
+  televisions,
+  selectedTV,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  televisions: any[];
+  selectedTV: any;
+  onSelect: (tv: any) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      transparent
+    >
+      <View style={s.tvModalOverlay}>
+        <View style={s.tvModalSheet}>
+          <LinearGradient
+            colors={[C.bgMid, "#0D1B4B"]}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          {/* Handle */}
+          <View style={s.sheetHandle} />
+
+          {/* Header */}
+          <View style={s.tvModalHeader}>
+            <View style={s.tvModalTitleWrap}>
+              <Ionicons name="tv-outline" size={18} color={C.cyan} />
+              <Text style={s.tvModalTitle}>Sélectionner un écran</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={s.tvModalClose}>
+              <Ionicons name="close" size={18} color={C.white60} />
+            </TouchableOpacity>
+          </View>
+
+          {/* List */}
+          <FlatList
+            data={televisions}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={{ padding: 16, gap: 10 }}
+            renderItem={({ item }) => {
+              const isSelected = selectedTV?.id === item.id;
+              return (
+                <TouchableOpacity
+                  onPress={() => {
+                    onSelect(item);
+                    onClose();
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={[s.tvItem, isSelected && s.tvItemSelected]}>
+                    {/* Left accent */}
+                    {isSelected && <View style={s.tvItemAccent} />}
+
+                    <View
+                      style={[
+                        s.tvItemIcon,
+                        {
+                          backgroundColor: item.status
+                            ? C.successDim
+                            : C.white10,
+                          borderColor: item.status ? C.successBorder : C.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="tv-outline"
+                        size={18}
+                        color={item.status ? C.success : C.white40}
+                      />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[s.tvItemName, isSelected && { color: C.white }]}
+                      >
+                        {item.name}
+                      </Text>
+                      <View style={s.tvItemStatus}>
+                        <View
+                          style={[
+                            s.statusDot,
+                            {
+                              backgroundColor: item.status
+                                ? C.success
+                                : C.error,
+                            },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            s.tvItemStatusText,
+                            { color: item.status ? C.success : C.error },
+                          ]}
+                        >
+                          {item.status ? "En ligne" : "Hors ligne"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {isSelected && (
+                      <View style={s.tvCheckWrap}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={22}
+                          color={C.accent}
+                        />
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── SAVING OVERLAY ───────────────────────────────────────────────────────────
+function SavingOverlay({ visible }: { visible: boolean }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!visible) return;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.12,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={s.savingOverlay}>
+        <View style={s.savingCard}>
+          <LinearGradient
+            colors={[C.bgMid, "#0D1B4B"]}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <Animated.View
+            style={[s.savingOrb, { transform: [{ scale: pulse }] }]}
+          >
+            <LinearGradient
+              colors={[C.accent, C.cyan]}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <Ionicons name="musical-notes" size={28} color={C.bgDeep} />
+          </Animated.View>
+          <Text style={s.savingTitle}>Création en cours…</Text>
+          <Text style={s.savingSub}>Veuillez patienter</Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── MAIN SCREEN ──────────────────────────────────────────────────────────────
 export default function AddPlaylistScreen() {
-  // États du formulaire
   const [title, setTitle] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isActive, setIsActive] = useState(false);
-  const [televisions, setTV] = useState<any>([]);
+  const [televisions, setTV] = useState<any[]>([]);
   const [selectedTV, setSelectedTV] = useState<any>(null);
-  const [selectedMedia, setSelectedMedia] = useState([]);
-  const [launchDate, setLaunchDate] = useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(17, 0, 0, 0);
-    return tomorrow;
-  });
-
-  // États pour les pickers
+  const [selectedMedia, setSelectedMedia] = useState<any[]>([]);
+  const [showTVSelector, setShowTVSelector] = useState(false);
+  const [scheduleData, setScheduleData] = useState<any>({});
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showTVSelector, setShowTVSelector] = useState(false);
+  const [launchDate, setLaunchDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(17, 0, 0, 0);
+    return d;
+  });
 
-  // États pour les médias
-  const [isSelectingMedia, setIsSelectingMedia] = useState(false);
+  const headerY = useRef(new Animated.Value(-10)).current;
+  const headerO = useRef(new Animated.Value(0)).current;
 
-  const [showDurationSelector, setShowDurationSelector] = useState(false);
+  useEffect(() => {
+    getMyTVs().then(setTV);
+    Animated.parallel([
+      Animated.spring(headerY, { toValue: 0, useNativeDriver: true }),
+      Animated.timing(headerO, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
-  const [scheduleData, setScheduleData] = useState<any>({});
-
-  const fetchTVs = async () => {
-    const TV = await getMyTVs();
-    setTV(TV);
-  };
-
-  const onDateChange = (event: any, selectedDate: any) => {
+  const onDateChange = (_: any, d?: Date) => {
     setShowDatePicker(false);
-    if (selectedDate) {
-      const newDate = new Date(launchDate);
-      newDate.setFullYear(selectedDate.getFullYear());
-      newDate.setMonth(selectedDate.getMonth());
-      newDate.setDate(selectedDate.getDate());
-      setLaunchDate(newDate);
-    }
+    if (!d) return;
+    const n = new Date(launchDate);
+    n.setFullYear(d.getFullYear());
+    n.setMonth(d.getMonth());
+    n.setDate(d.getDate());
+    setLaunchDate(n);
+  };
+  const onTimeChange = (_: any, t?: Date) => {
+    setShowTimePicker(false);
+    if (!t) return;
+    const n = new Date(launchDate);
+    n.setHours(t.getHours());
+    n.setMinutes(t.getMinutes());
+    setLaunchDate(n);
   };
 
-  const onTimeChange = (event: any, selectedTime: any) => {
-    setShowTimePicker(false);
-    if (selectedTime) {
-      const newDate = new Date(launchDate);
-      newDate.setHours(selectedTime.getHours());
-      newDate.setMinutes(selectedTime.getMinutes());
-      setLaunchDate(newDate);
-    }
+  const getTotalDuration = () =>
+    selectedMedia.reduce((t, m) => t + (m.duration || 0), 0);
+  const formatDuration = (s: number) => {
+    const m = Math.floor(s / 60),
+      r = s % 60;
+    return m > 0 ? `${m}m ${r}s` : `${r}s`;
   };
+
+  const isFormValid = title.trim() && selectedTV && selectedMedia.length > 0;
 
   const handleSave = async () => {
-    if (!title.trim()) {
-      Alert.alert("Erreur", "Veuillez saisir un titre pour la playlist");
-      return;
-    }
-
-    if (!selectedTV) {
-      Alert.alert("Erreur", "Veuillez sélectionner une télévision");
-      return;
-    }
-
-    if (selectedMedia.length === 0) {
-      Alert.alert("Erreur", "Veuillez ajouter au moins un média");
-      return;
-    }
-
-    Alert.alert("Confirmation", "Voulez-vous créer cette playlist ?", [
+    if (!isFormValid) return;
+    Alert.alert("Créer la playlist", "Voulez-vous créer cette playlist ?", [
       { text: "Annuler", style: "cancel" },
       {
-        text: "Confirmer",
+        text: "Créer",
         onPress: async () => {
           try {
             setIsSaving(true);
-
-            const playlistData = {
+            const data = {
               titre: title.trim(),
               items: selectedMedia,
               television: selectedTV.id,
               launch_date: launchDate.toISOString(),
-              endDate: scheduleData.endDate,
-              startTime: scheduleData.startTime,
-              endTime: scheduleData.endTime,
-              daysOfWeek: scheduleData.daysOfWeek,
+              ...scheduleData,
               isActive,
             };
-            console.log("🚀 ~ handleSave ~ playlistData:", playlistData);
-
-            const response = await createPlaylist(playlistData);
-
+            const response = await createPlaylist(data);
             if (response && selectedTV.status) {
               socket.emit("playlist_created", {
                 tv_id: selectedTV.id,
                 playlist: response,
               });
             }
-
-            Alert.alert("🎉 Succès", "Playlist créée avec succès!");
+            Alert.alert("🎉 Succès", "Playlist créée avec succès !");
             router.replace("/home");
-          } catch (error) {
-            console.error("❌ Erreur création:", error);
+          } catch (e) {
+            console.error(e);
+            Alert.alert("Erreur", "Impossible de créer la playlist");
           } finally {
             setIsSaving(false);
           }
@@ -140,308 +395,329 @@ export default function AddPlaylistScreen() {
     ]);
   };
 
-  const getTotalDuration = () => {
-    return selectedMedia.reduce((total, media) => total + media.duration, 0);
-  };
-
-  const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-  };
-
-  useEffect(() => {
-    fetchTVs();
-  }, []);
-
   return (
-    <SafeAreaView style={styles.container}>
-      {isSaving && (
-        <Modal visible={isSaving} transparent={true} animationType="fade">
-          <View style={styles.savingOverlay}>
-            <View style={styles.savingContainer}>
-              <ActivityIndicator size="large" color="#2575fc" />
-              <Text style={styles.savingText}>
-                Création de la playlist en cours...
-              </Text>
-              <Text style={styles.savingSubtext}>Veuillez patienter</Text>
-            </View>
-          </View>
-        </Modal>
-      )}
+    <SafeAreaView style={s.root}>
+      <LinearGradient
+        colors={[C.bgDeep, C.bgMid, "#0D1B4B"]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <SavingOverlay visible={isSaving} />
+
+      {/* ── HEADER ── */}
+      <Animated.View
+        style={[
+          s.header,
+          { opacity: headerO, transform: [{ translateY: headerY }] },
+        ]}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <Ionicons name="chevron-back" size={22} color={C.white80} />
+        </TouchableOpacity>
+
+        <View style={s.headerCenter}>
+          <Text style={s.headerTitle}>Nouvelle playlist</Text>
+          <Text style={s.headerSub}>Configurez votre contenu</Text>
+        </View>
+
+        {/* Step indicator */}
+        <View style={s.stepIndicator}>
+          {[
+            C.accent,
+            selectedMedia.length > 0 ? C.accent : C.white20,
+            selectedTV ? C.accent : C.white20,
+          ].map((c, i) => (
+            <View
+              key={i}
+              style={[
+                s.stepDot,
+                { backgroundColor: c, width: i === 0 ? 16 : 6 },
+              ]}
+            />
+          ))}
+        </View>
+      </Animated.View>
 
       <ScrollView
-        style={styles.scrollContainer}
+        style={{ flex: 1 }}
+        contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <LinearGradient colors={["#2575fc", "#6a11cb"]} style={styles.header}>
-          <View style={styles.headerContent}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Nouvelle playlist</Text>
-            <View style={{ width: 40 }} />
-          </View>
-        </LinearGradient>
-
-        <View style={styles.content}>
-          {/* Titre */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="text" size={20} color="#1B2845" />
-              <Text style={styles.sectionTitle}>Titre de la playlist</Text>
-            </View>
+        {/* ── TITRE ── */}
+        <SectionCard
+          icon="text-outline"
+          title="Titre de la playlist"
+          iconColor={C.accent}
+        >
+          <View style={s.inputWrap}>
             <TextInput
-              style={styles.textInput}
+              style={s.textInput}
               value={title}
               onChangeText={setTitle}
-              placeholder="Nom de votre playlist"
-              placeholderTextColor="#999"
+              placeholder="Nom de votre playlist…"
+              placeholderTextColor={C.white40}
+              selectionColor={C.accent}
             />
+            {title.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setTitle("")}
+                style={s.inputClear}
+              >
+                <Ionicons name="close-circle" size={18} color={C.white40} />
+              </TouchableOpacity>
+            )}
           </View>
+          {title.length > 0 && (
+            <Text style={s.charCount}>{title.length} caractères</Text>
+          )}
+        </SectionCard>
 
-          {/* Sélection Médias */}
+        {/* ── MÉDIAS ── */}
+        <SectionCard icon="images-outline" title="Médias" iconColor={C.cyan}>
           <AddMediaForm
-            onSave={(data) => {
-              console.log(data);
-
-              setSelectedMedia(data);
-            }}
+            onSave={(data) => setSelectedMedia(data)}
             medias={selectedMedia}
           />
-
-          {/* Sélection TV */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="tv" size={20} color="#1B2845" />
-              <Text style={styles.sectionTitle}>Télévision</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.tvSelector}
-              onPress={() => setShowTVSelector(true)}
-            >
-              <View style={styles.tvSelectorContent}>
-                <Text
-                  style={
-                    selectedTV ? styles.tvSelectorText : styles.tvPlaceholder
-                  }
-                >
-                  {selectedTV ? selectedTV.name : "Sélectionner une télévision"}
+          {selectedMedia.length > 0 && (
+            <View style={s.mediaSummaryRow}>
+              <View
+                style={[
+                  s.mediaBadge,
+                  { borderColor: C.cyanBorder, backgroundColor: C.cyanDim },
+                ]}
+              >
+                <Ionicons name="film-outline" size={13} color={C.cyan} />
+                <Text style={[s.mediaBadgeText, { color: C.cyan }]}>
+                  {selectedMedia.length} média
+                  {selectedMedia.length > 1 ? "s" : ""}
                 </Text>
               </View>
-              <Ionicons name="chevron-down" size={20} color="#999" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Sélection TV */}
-          {/* <ScheduleForm
-            onSave={(data) => {
-              console.log("🚀 ~ data:", {
-                ...scheduleData,
-                ...data,
-              });
-              setScheduleData({
-                ...scheduleData,
-                ...data,
-              });
-            }}
-          /> */}
-
-          <ScheduleForm
-            onSave={(data) => {
-              console.log("🔍 Données reçues de ScheduleForm:", data);
-              console.log("📦 scheduleData actuel:", scheduleData);
-
-              const merged = {
-                ...scheduleData,
-                ...data,
-              };
-
-              console.log("✅ Données fusionnées:", merged);
-
-              setScheduleData(merged);
-            }}
-          />
-
-          {/* Section Status */}
-          <View style={styles.section}>
-            <View style={styles.statusContainer}>
-              <View style={styles.statusInfo}>
-                <Ionicons
-                  name={isActive ? "play-circle" : "pause-circle"}
-                  size={20}
-                  color={isActive ? "#4CAF50" : "#FF6B35"}
-                />
-                <Text style={styles.statusLabel}>
-                  {isActive ? "Activer immédiatement" : "Garder en brouillon"}
-                </Text>
-              </View>
-              <Switch
-                value={isActive}
-                onValueChange={setIsActive}
-                trackColor={{ false: "#e0e0e0", true: "#2575fc30" }}
-                thumbColor={isActive ? "#2575fc" : "#999"}
-              />
-            </View>
-          </View>
-
-          {/* Résumé */}
-          {selectedMedia.length > 0 && selectedTV && (
-            <View style={styles.summarySection}>
-              <Text style={styles.summaryTitle}>📋 Résumé</Text>
-
-              <View style={styles.summaryItem}>
-                <Ionicons name="tv" size={18} color="#1B2845" />
-                <Text style={styles.summaryText}>
-                  <Text style={styles.summaryLabel}>Télévision:</Text>{" "}
-                  {selectedTV.name}
-                </Text>
-              </View>
-
-              <View style={styles.summaryItem}>
-                <Ionicons name="calendar" size={18} color="#1B2845" />
-                <Text style={styles.summaryText}>
-                  <Text style={styles.summaryLabel}>Date:</Text>{" "}
-                  {launchDate.toLocaleDateString("fr-FR", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}{" "}
-                  à{" "}
-                  {launchDate.toLocaleTimeString("fr-FR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              </View>
-
-              <View style={styles.summaryItem}>
-                <Ionicons name="images" size={18} color="#1B2845" />
-                <Text style={styles.summaryText}>
-                  <Text style={styles.summaryLabel}>Médias:</Text>{" "}
-                  {selectedMedia.length} élément(s)
-                </Text>
-              </View>
-
-              <View style={styles.summaryItem}>
-                <Ionicons name="time" size={18} color="#1B2845" />
-                <Text style={styles.summaryText}>
-                  <Text style={styles.summaryLabel}>Durée totale:</Text>{" "}
+              <View
+                style={[
+                  s.mediaBadge,
+                  { borderColor: C.accentBorder, backgroundColor: C.accentDim },
+                ]}
+              >
+                <Ionicons name="time-outline" size={13} color={C.accent} />
+                <Text style={[s.mediaBadgeText, { color: C.accent }]}>
                   {formatDuration(getTotalDuration())}
                 </Text>
               </View>
             </View>
           )}
-        </View>
+        </SectionCard>
+
+        {/* ── TÉLÉVISION ── */}
+        <SectionCard icon="tv-outline" title="Écran cible" iconColor={C.purple}>
+          <TouchableOpacity
+            style={[
+              s.tvSelector,
+              selectedTV && { borderColor: C.accentBorder },
+            ]}
+            onPress={() => setShowTVSelector(true)}
+            activeOpacity={0.8}
+          >
+            {selectedTV ? (
+              <View style={s.tvSelectorSelected}>
+                <View
+                  style={[
+                    s.tvSelectorIcon,
+                    {
+                      backgroundColor: C.successDim,
+                      borderColor: C.successBorder,
+                    },
+                  ]}
+                >
+                  <Ionicons name="tv" size={16} color={C.success} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.tvSelectorName}>{selectedTV.name}</Text>
+                  <View style={s.tvSelectorStatus}>
+                    <View
+                      style={[
+                        s.statusDot,
+                        {
+                          backgroundColor: selectedTV.status
+                            ? C.success
+                            : C.error,
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        s.tvSelectorStatusText,
+                        { color: selectedTV.status ? C.success : C.error },
+                      ]}
+                    >
+                      {selectedTV.status ? "En ligne" : "Hors ligne"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={s.tvSelectorPlaceholderWrap}>
+                <Ionicons name="tv-outline" size={18} color={C.white40} />
+                <Text style={s.tvSelectorPlaceholder}>
+                  Sélectionner un écran
+                </Text>
+              </View>
+            )}
+            <Ionicons name="chevron-down" size={18} color={C.white40} />
+          </TouchableOpacity>
+        </SectionCard>
+
+        {/* ── PLANIFICATION ── */}
+        <SectionCard
+          icon="calendar-outline"
+          title="Planification"
+          iconColor={C.warning}
+        >
+          <ScheduleForm
+            onSave={(data) =>
+              setScheduleData((prev: any) => ({ ...prev, ...data }))
+            }
+          />
+        </SectionCard>
+
+        {/* ── STATUT ── */}
+        <SectionCard
+          icon={isActive ? "play-circle-outline" : "pause-circle-outline"}
+          title="Statut de diffusion"
+          iconColor={isActive ? C.success : C.white40}
+        >
+          <View style={s.statusRow}>
+            <View style={s.statusLeft}>
+              <View
+                style={[
+                  s.statusIconWrap,
+                  {
+                    backgroundColor: isActive ? C.successDim : C.white10,
+                    borderColor: isActive ? C.successBorder : C.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={isActive ? "radio" : "radio-outline"}
+                  size={16}
+                  color={isActive ? C.success : C.white40}
+                />
+              </View>
+              <View>
+                <Text style={s.statusTitle}>
+                  {isActive ? "Activer immédiatement" : "Garder en brouillon"}
+                </Text>
+                <Text style={s.statusSub}>
+                  {isActive
+                    ? "La playlist sera diffusée dès la création"
+                    : "Vous pourrez l'activer plus tard"}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isActive}
+              onValueChange={setIsActive}
+              trackColor={{ false: C.white10, true: C.accentDim }}
+              thumbColor={isActive ? C.accent : C.white40}
+              ios_backgroundColor={C.white10}
+            />
+          </View>
+        </SectionCard>
+
+        {/* ── RÉSUMÉ ── */}
+        {selectedMedia.length > 0 && selectedTV && (
+          <View style={s.summaryCard}>
+            <LinearGradient
+              colors={[C.accentDim, C.cyanDim]}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View style={s.summaryTopBar} />
+            <View style={s.summaryCardInner}>
+              <Text style={s.summaryCardTitle}>📋 Résumé</Text>
+              <SummaryRow
+                icon="tv-outline"
+                label="Télévision"
+                value={selectedTV.name}
+                color={C.cyan}
+              />
+              <SummaryRow
+                icon="images-outline"
+                label="Médias"
+                value={`${selectedMedia.length} élément(s)`}
+                color={C.accent}
+              />
+              <SummaryRow
+                icon="time-outline"
+                label="Durée totale"
+                value={formatDuration(getTotalDuration())}
+                color={C.purple}
+              />
+              <SummaryRow
+                icon="calendar-outline"
+                label="Date de lancement"
+                color={C.warning}
+                value={
+                  launchDate.toLocaleDateString("fr-FR", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  }) +
+                  " à " +
+                  launchDate.toLocaleTimeString("fr-FR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                }
+              />
+            </View>
+          </View>
+        )}
       </ScrollView>
 
-      {/* Bouton de sauvegarde */}
-      <View style={styles.saveButtonContainer}>
+      {/* ── SAVE BAR ── */}
+      <View style={s.saveBar}>
+        <LinearGradient
+          colors={["transparent", C.bgDeep + "CC", C.bgDeep]}
+          style={s.saveBarBlur}
+          pointerEvents="none"
+        />
         <TouchableOpacity
-          style={[
-            styles.saveButton,
-            (!title.trim() ||
-              !selectedTV ||
-              selectedMedia.length === 0 ||
-              isSaving) &&
-              styles.disabledSaveButton,
-          ]}
+          style={[s.saveBtn, !isFormValid && { opacity: 0.45 }]}
           onPress={handleSave}
-          disabled={
-            !title.trim() ||
-            !selectedTV ||
-            selectedMedia.length === 0 ||
-            isSaving
-          }
+          disabled={!isFormValid || isSaving}
+          activeOpacity={0.85}
         >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <LinearGradient
-              colors={["#2575fc", "#6a11cb"]}
-              style={styles.saveButtonGradient}
+          <LinearGradient
+            colors={isFormValid ? [C.accent, C.cyan] : [C.white20, C.white10]}
+            style={s.saveBtnGrad}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={20}
+              color={isFormValid ? C.bgDeep : C.white40}
+            />
+            <Text
+              style={[
+                s.saveBtnText,
+                { color: isFormValid ? C.bgDeep : C.white40 },
+              ]}
             >
-              <Ionicons name="checkmark" size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Créer la playlist</Text>
-            </LinearGradient>
-          )}
+              Créer la playlist
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      {/* Modal sélection TV */}
-      <Modal
+      {/* ── TV MODAL ── */}
+      <TVModal
         visible={showTVSelector}
-        animationType="slide"
-        onRequestClose={() => setShowTVSelector(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Sélectionner une télévision</Text>
-            <TouchableOpacity
-              onPress={() => setShowTVSelector(false)}
-              style={styles.closeButton}
-            >
-              <Ionicons name="close" size={24} color="#666" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.modalContent}>
-            <FlatList
-              data={televisions}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.tvItem,
-                    selectedTV?.id === item.id && styles.selectedTVItem,
-                  ]}
-                  onPress={() => {
-                    setSelectedTV(item);
-                    setShowTVSelector(false);
-                  }}
-                >
-                  <View style={styles.tvInfo}>
-                    <Text style={styles.tvName}>{item.name}</Text>
-                    <View style={styles.tvStatus}>
-                      <View
-                        style={[
-                          styles.statusDot,
-                          {
-                            backgroundColor: item.status
-                              ? "#4CAF50"
-                              : "#f44336",
-                          },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.statusText,
-                          !item.status && styles.statusTextDisabled,
-                        ]}
-                      >
-                        {item.status ? "En ligne" : "Hors ligne"}
-                      </Text>
-                    </View>
-                  </View>
-                  {selectedTV?.id === item.id && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={24}
-                      color="#2575fc"
-                    />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+        televisions={televisions}
+        selectedTV={selectedTV}
+        onSelect={setSelectedTV}
+        onClose={() => setShowTVSelector(false)}
+      />
 
-      {/* DateTimePickers */}
+      {/* ── DATE / TIME PICKERS ── */}
       {showDatePicker && (
         <DateTimePicker
           value={launchDate}
@@ -449,672 +725,341 @@ export default function AddPlaylistScreen() {
           display={Platform.OS === "ios" ? "spinner" : "default"}
           onChange={onDateChange}
           minimumDate={new Date()}
-          textColor="#1B2845"
         />
       )}
-
       {showTimePicker && (
         <DateTimePicker
           value={launchDate}
           mode="time"
           display={Platform.OS === "ios" ? "spinner" : "default"}
           onChange={onTimeChange}
-          textColor="#1B2845"
         />
       )}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f7fa",
-  },
-  scrollContainer: {
-    flex: 1,
-  },
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: { flex: 1 },
+
+  // Header
   header: {
-    paddingTop: Platform.OS === "ios" ? 0 : 10,
-    paddingBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "between",
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-    flex: 1,
-    textAlign: "center",
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-
-  // Section styles
-  section: {
-    backgroundColor: "#fff",
+  backBtn: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  sectionHeader: {
+  headerCenter: { flex: 1, alignItems: "center" },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: -0.3,
+  },
+  headerSub: { fontSize: 12, color: C.white40, marginTop: 2 },
+  stepIndicator: { flexDirection: "row", alignItems: "center", gap: 4 },
+  stepDot: { height: 6, borderRadius: 3 },
+
+  // Scroll
+  scrollContent: { padding: 16, paddingBottom: 130, gap: 12 },
+
+  // Section
+  section: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bgCard,
+    padding: 16,
+    gap: 12,
+  },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  sectionIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: C.white80 },
+
+  // Input
+  inputWrap: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1B2845",
-    marginLeft: 8,
-  },
-
-  // Text input styles
-  textInput: {
-    backgroundColor: "#f8f9fa",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#333",
+    borderColor: C.border,
+    borderRadius: 12,
+    backgroundColor: C.white05,
+    paddingHorizontal: 14,
   },
-
-  // Empty state
-  emptyContainer: {
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#666",
-    marginTop: 16,
+  textInput: {
+    flex: 1,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: C.white,
     fontWeight: "500",
   },
-  emptySubtext: {
-    fontSize: 14,
-    color: "#999",
-    marginTop: 8,
-    textAlign: "center",
-  },
+  inputClear: { paddingLeft: 8 },
+  charCount: { fontSize: 11, color: C.white40, textAlign: "right" },
 
-  // TV selector
+  // Media summary
+  mediaSummaryRow: { flexDirection: "row", gap: 8 },
+  mediaBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  mediaBadgeText: { fontSize: 12, fontWeight: "600" },
+
+  // TV Selector
   tvSelector: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
+    justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  tvSelectorContent: {
-    flex: 1,
-  },
-  tvSelectorText: {
-    fontSize: 16,
-    color: "#333",
-  },
-  tvPlaceholder: {
-    fontSize: 16,
-    color: "#999",
-  },
-
-  // Date time
-  dateTimeContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  dateTimeButton: {
-    flex: 0.48,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  dateTimeContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  dateTimeText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
-  },
-
-  // Status
-  statusContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statusInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusLabel: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: "#1B2845",
-    fontWeight: "500",
-  },
-
-  // Summary
-  summarySection: {
-    backgroundColor: "#f8f9fa",
+    borderColor: C.border,
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#e3f2fd",
+    backgroundColor: C.white05,
+    padding: 12,
   },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1B2845",
-    marginBottom: 16,
-  },
-  summaryItem: {
+  tvSelectorSelected: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    flex: 1,
+    gap: 10,
   },
-  summaryText: {
-    marginLeft: 12,
-    fontSize: 14,
-    color: "#333",
+  tvSelectorIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tvSelectorName: { fontSize: 15, fontWeight: "700", color: C.white80 },
+  tvSelectorStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 2,
+  },
+  tvSelectorStatusText: { fontSize: 11, fontWeight: "600" },
+  tvSelectorPlaceholderWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     flex: 1,
   },
-  summaryLabel: {
-    fontWeight: "600",
-    color: "#1B2845",
-  },
+  tvSelectorPlaceholder: { fontSize: 14, color: C.white40 },
 
-  // Group mode bar
-  groupModeBar: {
+  // Status toggle
+  statusRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
+    gap: 12,
+  },
+  statusLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  statusIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#e3f2fd",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#2575fc20",
   },
-  groupModeInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  groupModeText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#2575fc",
-    fontWeight: "600",
-  },
-  exitGroupButton: {
-    backgroundColor: "#2575fc",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  exitGroupText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
+  statusTitle: { fontSize: 14, fontWeight: "700", color: C.white80 },
+  statusSub: { fontSize: 11, color: C.white40, marginTop: 2, flexShrink: 1 },
 
-  // Save button
-  saveButtonContainer: {
+  // Summary card
+  summaryCard: {
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+  },
+  summaryTopBar: { height: 2, backgroundColor: C.accent },
+  summaryCardInner: { padding: 16, gap: 10 },
+  summaryCardTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: C.white,
+    marginBottom: 4,
+  },
+  summaryRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  summaryIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  summaryLabel: { fontSize: 11, color: C.white40, fontWeight: "500" },
+  summaryValue: { fontSize: 13, fontWeight: "700", color: C.white80 },
+
+  // Save bar
+  saveBar: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#fff",
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    paddingTop: 8,
+    paddingBottom: 32,
   },
-  saveButton: {
-    borderRadius: 12,
-    overflow: "hidden",
+  saveBarBlur: {
+    position: "absolute",
+    top: -30,
+    left: 0,
+    right: 0,
+    height: 60,
   },
-  saveButtonGradient: {
+  saveBtn: { borderRadius: 18, overflow: "hidden" },
+  saveBtnGrad: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
+    gap: 8,
   },
-  saveButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  disabledSaveButton: {
-    opacity: 0.6,
-  },
+  saveBtnText: { fontSize: 16, fontWeight: "800", letterSpacing: -0.2 },
 
   // Saving overlay
   savingOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.75)",
     justifyContent: "center",
     alignItems: "center",
   },
-  savingContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 24,
-    alignItems: "center",
-    minWidth: 200,
-  },
-  savingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  savingSubtext: {
-    marginTop: 4,
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-  },
-
-  // NOUVEAU: Styles pour le modal de sélection du type de média
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mediaTypeSelectorContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    margin: 20,
-    maxWidth: 400,
-    width: "90%",
-  },
-  mediaTypeSelectorHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  mediaTypeSelectorTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1B2845",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  mediaTypeOptions: {
-    padding: 20,
-  },
-  mediaTypeOption: {
-    alignItems: "center",
-    padding: 20,
-    borderRadius: 12,
-    backgroundColor: "#f8f9fa",
-    marginBottom: 16,
+  savingCard: {
+    width: 220,
+    borderRadius: 28,
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: C.border,
+    alignItems: "center",
+    padding: 28,
+    gap: 12,
   },
-  mediaTypeIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#e3f2fd",
+  savingOrb: {
+    width: 70,
+    height: 70,
+    borderRadius: 20,
+    overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
   },
-  mediaTypeOptionTitle: {
+  savingTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#1B2845",
-    marginBottom: 4,
-  },
-  mediaTypeOptionDescription: {
-    fontSize: 14,
-    color: "#666",
+    fontWeight: "800",
+    color: C.white,
     textAlign: "center",
   },
+  savingSub: { fontSize: 13, color: C.white40, textAlign: "center" },
 
-  // Modal styles existants
-  modalContainer: {
+  // TV Modal
+  tvModalOverlay: {
     flex: 1,
-    backgroundColor: "#fff",
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
-  modalHeader: {
+  tvModalSheet: {
+    maxHeight: "70%",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: "hidden",
+    borderTopWidth: 1,
+    borderColor: C.border,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.white20,
+    alignSelf: "center",
+    marginTop: 12,
+  },
+  tvModalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    paddingTop: Platform.OS === "ios" ? 60 : 20,
+    borderBottomColor: C.border,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1B2845",
-  },
-  modalContent: {
-    flex: 1,
-    padding: 20,
+  tvModalTitleWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
+  tvModalTitle: { fontSize: 16, fontWeight: "700", color: C.white },
+  tvModalClose: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  // TV item styles
+  // TV Item
   tvItem: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  selectedTVItem: {
-    backgroundColor: "#e3f2fd",
-    borderColor: "#2575fc",
-  },
-  tvInfo: {
-    flex: 1,
-  },
-  tvName: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#333",
-    marginBottom: 4,
-  },
-  tvStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 14,
-    color: "#4CAF50",
-  },
-  statusTextDisabled: {
-    color: "#f44336",
-  },
-
-  // Duration modal styles
-  durationModalContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    margin: 20,
-    maxHeight: "70%",
-  },
-  durationModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  durationModalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1B2845",
-  },
-  durationModalContent: {
-    flex: 1,
-  },
-  durationList: {
-    maxHeight: 400,
-  },
-  durationOption: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  selectedDurationOption: {
-    backgroundColor: "#e3f2fd",
-  },
-  durationOptionContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  durationOptionText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: "#333",
-  },
-  selectedDurationText: {
-    color: "#2575fc",
-    fontWeight: "600",
-  },
-
-  subsection: {
-    marginBottom: 20,
-  },
-  subsectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 12,
-  },
-  dateRangeContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  dateRangeItem: {
-    flex: 0.48,
-  },
-  dateLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 6,
-  },
-  dateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
+    gap: 12,
+    borderRadius: 14,
     padding: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bgCard,
+    overflow: "hidden",
   },
-  dateButtonError: {
-    borderColor: "#ff4444",
-    backgroundColor: "#fff5f5",
+  tvItemSelected: { borderColor: C.accentBorder, backgroundColor: C.accentDim },
+  tvItemAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    backgroundColor: C.accent,
   },
-  dateText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
-  },
-  dateTextError: {
-    color: "#ff4444",
-  },
-
-  // Jours de la semaine
-  daysContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  dayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f0f0f0",
+  tvItemIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
   },
-  dayButtonSelected: {
-    backgroundColor: "#2575fc",
-    borderColor: "#2575fc",
-  },
-  dayButtonText: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#666",
-  },
-  dayButtonTextSelected: {
-    color: "#fff",
-  },
-  quickSelectContainer: {
+  tvItemName: { fontSize: 15, fontWeight: "700", color: C.white60 },
+  tvItemStatus: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 8,
-  },
-  quickSelectButton: {
-    flex: 0.22,
-    backgroundColor: "#e3f2fd",
-    paddingVertical: 6,
-    borderRadius: 6,
     alignItems: "center",
+    gap: 5,
+    marginTop: 3,
   },
-  quickSelectText: {
-    fontSize: 11,
-    color: "#2575fc",
-    fontWeight: "500",
-  },
+  tvItemStatusText: { fontSize: 11, fontWeight: "600" },
+  tvCheckWrap: { marginLeft: "auto" },
 
-  // Horaires
-  timeContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  timeItem: {
-    flex: 0.48,
-  },
-  timeLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 6,
-  },
-  timeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
-    padding: 12,
-  },
-  timeButtonError: {
-    borderColor: "#ff4444",
-    backgroundColor: "#fff5f5",
-  },
-  timeText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
-  },
-  timeTextError: {
-    color: "#ff4444",
-  },
-  timePresets: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 8,
-  },
-  presetButton: {
-    flex: 0.31,
-    backgroundColor: "#fff3e0",
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignItems: "center",
-  },
-  presetText: {
-    fontSize: 10,
-    color: "#ff6b35",
-    fontWeight: "500",
-  },
-
-  // Messages d'erreur et d'info
-  errorContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff5f5",
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  errorText: {
-    marginLeft: 6,
-    fontSize: 11,
-    color: "#ff4444",
-    flex: 1,
-  },
-  warningContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff8e1",
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  warningText: {
-    marginLeft: 6,
-    fontSize: 11,
-    color: "#ff9800",
-    flex: 1,
-  },
-  durationInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#e8f5e8",
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  durationInfoText: {
-    marginLeft: 6,
-    fontSize: 11,
-    color: "#4CAF50",
-    fontWeight: "500",
-  },
+  // Shared
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
 });

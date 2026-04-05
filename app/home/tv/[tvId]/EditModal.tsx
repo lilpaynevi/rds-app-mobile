@@ -12,16 +12,44 @@ import {
   Animated,
   Dimensions,
 } from "react-native";
-import {
-  MaterialIcons,
-  Ionicons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import api from "@/scripts/fetch.api";
 
-const { width, height } = Dimensions.get("window");
+const { height } = Dimensions.get("window");
+
+// ─── Palette (same as HomeScreen) ────────────────────────────────────────────
+const C = {
+  bgDeep: "#0A0E27",
+  bgMid: "#0F1642",
+  accent: "#4F8EF7",
+  accentDim: "rgba(79,142,247,0.12)",
+  accentBorder: "rgba(79,142,247,0.28)",
+  cyan: "#00E5FF",
+  cyanDim: "rgba(0,229,255,0.10)",
+  cyanBorder: "rgba(0,229,255,0.25)",
+  success: "#00E676",
+  successDim: "rgba(0,230,118,0.12)",
+  successBorder: "rgba(0,230,118,0.28)",
+  error: "#FF5252",
+  errorDim: "rgba(255,82,82,0.12)",
+  errorBorder: "rgba(255,82,82,0.28)",
+  warning: "#FFB74D",
+  warningDim: "rgba(255,183,77,0.12)",
+  warningBorder: "rgba(255,183,77,0.28)",
+  purple: "#7C4DFF",
+  purpleDim: "rgba(124,77,255,0.12)",
+  purpleBorder: "rgba(124,77,255,0.28)",
+  white: "#FFFFFF",
+  white80: "rgba(255,255,255,0.80)",
+  white60: "rgba(255,255,255,0.60)",
+  white40: "rgba(255,255,255,0.40)",
+  white20: "rgba(255,255,255,0.20)",
+  white10: "rgba(255,255,255,0.08)",
+  white05: "rgba(255,255,255,0.04)",
+  border: "rgba(255,255,255,0.09)",
+};
 
 interface EditTvModalProps {
   visible: boolean;
@@ -36,7 +64,6 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
   onClose,
   onSave,
 }) => {
-  // États pour les champs du formulaire
   const [formData, setFormData] = useState({
     id: data?.id || "",
     name: data?.name || "",
@@ -51,9 +78,8 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(height)).current;
 
-  // Options pour les listes déroulantes
   const resolutionOptions = [
     { label: "HD 720p", value: "HD_720P" },
     { label: "Full HD 1080p", value: "HD_1080P" },
@@ -80,371 +106,355 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
     { label: "120 Hz", value: 120 },
   ];
 
-  // Animation d'entrée du modal
   React.useEffect(() => {
-    if (visible) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
+    Animated.spring(slideAnim, {
+      toValue: visible ? 0 : height,
+      tension: 65,
+      friction: 11,
+      useNativeDriver: true,
+    }).start();
   }, [visible]);
 
   const updateField = (field: string, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {
-    // Validation
     if (!formData.name.trim()) {
       Alert.alert("Erreur", "Le nom de la télévision est requis");
       return;
     }
-
-    // if (!formData.location.trim()) {
-    //   Alert.alert("Erreur", "La localisation est requise");
-    //   return;
-    // }
-
     setIsLoading(true);
-
     try {
-      // Simulation d'appel API
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const response = await api.patch("/televisions/" + formData.id, formData);
-
-      const updatedData = {
-        ...data,
-        ...formData,
-        updatedAt: new Date().toISOString(),
-      };
-
+      await api.patch("/televisions/" + formData.id, formData);
+      const updatedData = { ...data, ...formData, updatedAt: new Date().toISOString() };
       onSave(updatedData);
       Alert.alert("Succès", "Télévision mise à jour avec succès");
       onClose();
-    } catch (error) {
+    } catch {
       Alert.alert("Erreur", "Impossible de mettre à jour la télévision");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ── Volume slider ──
   const VolumeSlider = () => {
     const [localVolume, setLocalVolume] = useState(formData.volume);
-
     return (
-      <View style={styles.volumeContainer}>
-        <View style={styles.volumeHeader}>
-          <MaterialIcons name="volume-up" size={20} color="#6B7280" />
-          <Text style={styles.volumeLabel}>Volume: {localVolume}%</Text>
+      <View style={s.volumeContainer}>
+        <View style={s.selectorHeader}>
+          <View style={[s.selectorIconWrap, { backgroundColor: C.cyanDim, borderColor: C.cyanBorder }]}>
+            <Ionicons name="volume-high-outline" size={16} color={C.cyan} />
+          </View>
+          <Text style={s.selectorTitle}>Volume : {localVolume}%</Text>
         </View>
-        <View style={styles.volumeSlider}>
-          <TouchableOpacity
-            style={styles.volumeTrack}
-            onPress={(e) => {
-              const { locationX } = e.nativeEvent;
-              const percentage = Math.round((locationX / 200) * 100);
-              const clampedVolume = Math.max(0, Math.min(100, percentage));
-              setLocalVolume(clampedVolume);
-              updateField("volume", clampedVolume);
-            }}
-          >
-            <View
-              style={[styles.volumeProgress, { width: `${localVolume}%` }]}
-            />
-            <View style={[styles.volumeThumb, { left: `${localVolume}%` }]} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={s.volumeTrack}
+          onPress={(e) => {
+            const { locationX } = e.nativeEvent;
+            const pct = Math.round((locationX / 240) * 100);
+            const v = Math.max(0, Math.min(100, pct));
+            setLocalVolume(v);
+            updateField("volume", v);
+          }}
+        >
+          <View style={[s.volumeProgress, { width: `${localVolume}%` as any }]} />
+          <View style={[s.volumeThumb, { left: `${localVolume}%` as any }]} />
+        </TouchableOpacity>
       </View>
     );
   };
 
+  // ── Option chips selector ──
   const OptionSelector = ({
     title,
     options,
     value,
     onSelect,
-    icon,
+    iconName,
+    iconColor,
+    iconBg,
+    iconBorder,
+    activeColor,
+    activeDim,
+    activeBorder,
   }: {
     title: string;
     options: Array<{ label: string; value: any }>;
     value: any;
-    onSelect: (value: any) => void;
-    icon: string;
+    onSelect: (v: any) => void;
+    iconName: string;
+    iconColor: string;
+    iconBg: string;
+    iconBorder: string;
+    activeColor: string;
+    activeDim: string;
+    activeBorder: string;
   }) => (
-    <View style={styles.selectorContainer}>
-      <View style={styles.selectorHeader}>
-        <MaterialIcons name={icon as any} size={20} color="#6B7280" />
-        <Text style={styles.selectorTitle}>{title}</Text>
+    <View style={s.selectorContainer}>
+      <View style={s.selectorHeader}>
+        <View style={[s.selectorIconWrap, { backgroundColor: iconBg, borderColor: iconBorder }]}>
+          <Ionicons name={iconName as any} size={16} color={iconColor} />
+        </View>
+        <Text style={s.selectorTitle}>{title}</Text>
       </View>
-      <View style={styles.optionsGrid}>
-        {options.map((option) => (
-          <TouchableOpacity
-            key={option.value}
-            style={[
-              styles.optionButton,
-              value === option.value && styles.optionButtonActive,
-            ]}
-            onPress={() => onSelect(option.value)}
-          >
-            <Text
+      <View style={s.optionsGrid}>
+        {options.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <TouchableOpacity
+              key={opt.value}
               style={[
-                styles.optionText,
-                value === option.value && styles.optionTextActive,
+                s.optionChip,
+                active
+                  ? { backgroundColor: activeDim, borderColor: activeBorder }
+                  : { backgroundColor: C.white05, borderColor: C.border },
               ]}
+              onPress={() => onSelect(opt.value)}
             >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text style={[s.optionChipText, { color: active ? activeColor : C.white40 }]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
 
+  const statusColor = data?.status === "ONLINE" ? C.success : C.error;
+  const statusDim = data?.status === "ONLINE" ? C.successDim : C.errorDim;
+  const statusBorder = data?.status === "ONLINE" ? C.successBorder : C.errorBorder;
+
   if (!visible) return null;
 
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="none"
-      onRequestClose={onClose}
-    >
-      <BlurView intensity={50} style={styles.modalOverlay}>
-        <Animated.View
-          style={[
-            styles.modalContainer,
-            {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [height, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          {/* Header du modal */}
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+      <BlurView intensity={40} tint="dark" style={s.overlay}>
+        <Animated.View style={[s.sheet, { transform: [{ translateY: slideAnim }] }]}>
+          {/* ── Handle bar ── */}
+          <View style={s.handle} />
+
+          {/* ── Header ── */}
           <LinearGradient
-            colors={["#3B82F6", "#1D4ED8"]}
-            style={styles.modalHeader}
+            colors={["rgba(255,255,255,0.09)", "rgba(255,255,255,0.03)"]}
+            style={s.modalHeader}
           >
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="white" />
+            <TouchableOpacity style={s.headerBtn} onPress={onClose} activeOpacity={0.7}>
+              <Ionicons name="close" size={18} color={C.white60} />
             </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>Modifier la télévision</Text>
+            <Text style={s.modalTitle}>Modifier la télévision</Text>
 
             <TouchableOpacity
+              style={[s.headerBtn, s.saveBtn, isLoading && { opacity: 0.5 }]}
               onPress={handleSave}
               disabled={isLoading}
-              style={[
-                styles.saveButton,
-                isLoading && styles.saveButtonDisabled,
-              ]}
+              activeOpacity={0.8}
             >
-              {isLoading ? (
-                <MaterialIcons name="hourglass-empty" size={20} color="white" />
-              ) : (
-                <MaterialIcons name="check" size={20} color="white" />
-              )}
+              <Ionicons
+                name={isLoading ? "hourglass-outline" : "checkmark"}
+                size={18}
+                color={C.success}
+              />
             </TouchableOpacity>
           </LinearGradient>
 
-          <ScrollView
-            style={styles.modalContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Informations de base */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <MaterialIcons name="info-outline" size={24} color="#3B82F6" />
-                <Text style={styles.sectionTitle}>Informations générales</Text>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+
+            {/* ── Informations générales ── */}
+            <View style={s.section}>
+              <View style={s.sectionHeader}>
+                <View style={[s.sectionIconWrap, { backgroundColor: C.accentDim, borderColor: C.accentBorder }]}>
+                  <Ionicons name="information-circle-outline" size={18} color={C.accent} />
+                </View>
+                <Text style={s.sectionTitle}>Informations générales</Text>
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Nom de la télévision *</Text>
+              <View style={s.inputContainer}>
+                <Text style={s.inputLabel}>Nom de la télévision *</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={s.textInput}
                   value={formData.name}
-                  onChangeText={(text) => updateField("name", text)}
-                  placeholder="Ex: Samsung TV Salon"
-                  placeholderTextColor="#9CA3AF"
+                  onChangeText={(t) => updateField("name", t)}
+                  placeholder="Ex : Samsung TV Salon"
+                  placeholderTextColor={C.white20}
+                  selectionColor={C.accent}
                 />
               </View>
 
-              {/* <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Localisation *</Text>
+              <View style={s.inputContainer}>
+                <Text style={s.inputLabel}>Description</Text>
                 <TextInput
-                  style={styles.textInput}
-                  value={formData.location}
-                  onChangeText={(text) => updateField("location", text)}
-                  placeholder="Ex: Salon principal"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View> */}
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Description</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textArea]}
+                  style={[s.textInput, s.textArea]}
                   value={formData.description}
-                  onChangeText={(text) => updateField("description", text)}
-                  placeholder="Description optionnelle..."
-                  placeholderTextColor="#9CA3AF"
+                  onChangeText={(t) => updateField("description", t)}
+                  placeholder="Description optionnelle…"
+                  placeholderTextColor={C.white20}
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
+                  selectionColor={C.accent}
                 />
               </View>
             </View>
 
-            {/* Paramètres d'affichage */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons
-                  name="monitor"
-                  size={24}
-                  color="#10B981"
-                />
-                <Text style={styles.sectionTitle}>Paramètres d'affichage</Text>
+            {/* ── Paramètres d'affichage ── */}
+            <View style={s.section}>
+              <View style={s.sectionHeader}>
+                <View style={[s.sectionIconWrap, { backgroundColor: C.successDim, borderColor: C.successBorder }]}>
+                  <Ionicons name="tv-outline" size={18} color={C.success} />
+                </View>
+                <Text style={s.sectionTitle}>Paramètres d'affichage</Text>
               </View>
 
               <OptionSelector
                 title="Résolution"
                 options={resolutionOptions}
                 value={formData.resolution}
-                onSelect={(value) => updateField("resolution", value)}
-                icon="high-definition"
+                onSelect={(v) => updateField("resolution", v)}
+                iconName="scan-outline"
+                iconColor={C.accent}
+                iconBg={C.accentDim}
+                iconBorder={C.accentBorder}
+                activeColor={C.accent}
+                activeDim={C.accentDim}
+                activeBorder={C.accentBorder}
               />
 
               <OptionSelector
                 title="Orientation"
                 options={orientationOptions}
                 value={formData.orientation}
-                onSelect={(value) => updateField("orientation", value)}
-                icon="screen-rotation"
+                onSelect={(v) => updateField("orientation", v)}
+                iconName="phone-portrait-outline"
+                iconColor={C.cyan}
+                iconBg={C.cyanDim}
+                iconBorder={C.cyanBorder}
+                activeColor={C.cyan}
+                activeDim={C.cyanDim}
+                activeBorder={C.cyanBorder}
               />
 
               <OptionSelector
                 title="Type de transition"
                 options={transitionOptions}
                 value={formData.transition}
-                onSelect={(value) => updateField("transition", value)}
-                icon="transition"
+                onSelect={(v) => updateField("transition", v)}
+                iconName="swap-horizontal-outline"
+                iconColor={C.purple}
+                iconBg={C.purpleDim}
+                iconBorder={C.purpleBorder}
+                activeColor={C.purple}
+                activeDim={C.purpleDim}
+                activeBorder={C.purpleBorder}
               />
 
               <OptionSelector
                 title="Taux de rafraîchissement"
                 options={refreshRateOptions}
                 value={formData.refreshRate}
-                onSelect={(value) => updateField("refreshRate", value)}
-                icon="refresh"
+                onSelect={(v) => updateField("refreshRate", v)}
+                iconName="speedometer-outline"
+                iconColor={C.warning}
+                iconBg={C.warningDim}
+                iconBorder={C.warningBorder}
+                activeColor={C.warning}
+                activeDim={C.warningDim}
+                activeBorder={C.warningBorder}
               />
             </View>
 
-            {/* Paramètres de lecture */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <MaterialIcons
-                  name="play-circle-outline"
-                  size={24}
-                  color="#8B5CF6"
-                />
-                <Text style={styles.sectionTitle}>Paramètres de lecture</Text>
+            {/* ── Paramètres de lecture ── */}
+            <View style={s.section}>
+              <View style={s.sectionHeader}>
+                <View style={[s.sectionIconWrap, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}>
+                  <Ionicons name="play-circle-outline" size={18} color={C.purple} />
+                </View>
+                <Text style={s.sectionTitle}>Paramètres de lecture</Text>
               </View>
 
               <VolumeSlider />
 
-              <View style={styles.switchContainer}>
-                <View style={styles.switchInfo}>
-                  <MaterialIcons name="play-arrow" size={20} color="#6B7280" />
-                  <View style={styles.switchLabels}>
-                    <Text style={styles.switchLabel}>Lecture automatique</Text>
-                    <Text style={styles.switchDescription}>
-                      Démarre automatiquement la lecture
-                    </Text>
-                  </View>
+              {/* Auto play */}
+              <LinearGradient
+                colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
+                style={s.switchRow}
+              >
+                <View style={[s.switchIcon, { backgroundColor: C.accentDim, borderColor: C.accentBorder }]}>
+                  <Ionicons name="play-outline" size={16} color={C.accent} />
+                </View>
+                <View style={s.switchLabels}>
+                  <Text style={s.switchLabel}>Lecture automatique</Text>
+                  <Text style={s.switchDesc}>Démarre automatiquement la lecture</Text>
                 </View>
                 <Switch
                   value={formData.autoPlay}
-                  onValueChange={(value) => updateField("autoPlay", value)}
-                  trackColor={{ false: "#E5E7EB", true: "#DBEAFE" }}
-                  thumbColor={formData.autoPlay ? "#3B82F6" : "#9CA3AF"}
+                  onValueChange={(v) => updateField("autoPlay", v)}
+                  trackColor={{ false: C.white10, true: C.accentDim }}
+                  thumbColor={formData.autoPlay ? C.accent : C.white40}
                 />
-              </View>
+              </LinearGradient>
 
-              <View style={styles.switchContainer}>
-                <View style={styles.switchInfo}>
-                  <MaterialIcons name="loop" size={20} color="#6B7280" />
-                  <View style={styles.switchLabels}>
-                    <Text style={styles.switchLabel}>Lecture en boucle</Text>
-                    <Text style={styles.switchDescription}>
-                      Répète la lecture indéfiniment
-                    </Text>
-                  </View>
+              {/* Loop */}
+              <LinearGradient
+                colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
+                style={s.switchRow}
+              >
+                <View style={[s.switchIcon, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}>
+                  <Ionicons name="repeat-outline" size={16} color={C.purple} />
+                </View>
+                <View style={s.switchLabels}>
+                  <Text style={s.switchLabel}>Lecture en boucle</Text>
+                  <Text style={s.switchDesc}>Répète la lecture indéfiniment</Text>
                 </View>
                 <Switch
                   value={formData.loop}
-                  onValueChange={(value) => updateField("loop", value)}
-                  trackColor={{ false: "#E5E7EB", true: "#DBEAFE" }}
-                  thumbColor={formData.loop ? "#3B82F6" : "#9CA3AF"}
+                  onValueChange={(v) => updateField("loop", v)}
+                  trackColor={{ false: C.white10, true: C.purpleDim }}
+                  thumbColor={formData.loop ? C.purple : C.white40}
                 />
-              </View>
+              </LinearGradient>
             </View>
 
-            {/* Résumé des modifications */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <MaterialIcons name="preview" size={24} color="#F59E0B" />
-                <Text style={styles.sectionTitle}>Résumé</Text>
+            {/* ── Résumé ── */}
+            <View style={s.section}>
+              <View style={s.sectionHeader}>
+                <View style={[s.sectionIconWrap, { backgroundColor: C.warningDim, borderColor: C.warningBorder }]}>
+                  <Ionicons name="eye-outline" size={18} color={C.warning} />
+                </View>
+                <Text style={s.sectionTitle}>Résumé</Text>
               </View>
 
-              <View style={styles.summaryContainer}>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Device ID:</Text>
-                  <Text style={styles.summaryValue}>{data?.deviceId}</Text>
+              <LinearGradient
+                colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.02)"]}
+                style={s.summaryCard}
+              >
+                <View style={s.summaryRow}>
+                  <Text style={s.summaryLabel}>Device ID</Text>
+                  <Text style={s.summaryValue}>{data?.deviceId ?? "—"}</Text>
                 </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Code de connexion:</Text>
-                  <Text style={styles.summaryValue}>
-                    {data?.codeConnection}
-                  </Text>
+                <View style={s.summaryDivider} />
+                <View style={s.summaryRow}>
+                  <Text style={s.summaryLabel}>Code de connexion</Text>
+                  <Text style={s.summaryValue}>{data?.codeConnection ?? "—"}</Text>
                 </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Statut actuel:</Text>
-                  <View style={styles.statusContainer}>
-                    <View
-                      style={[
-                        styles.statusDot,
-                        {
-                          backgroundColor:
-                            data?.status === "ONLINE" ? "#10B981" : "#EF4444",
-                        },
-                      ]}
-                    />
-                    <Text style={styles.summaryValue}>{data?.status}</Text>
+                <View style={s.summaryDivider} />
+                <View style={s.summaryRow}>
+                  <Text style={s.summaryLabel}>Statut actuel</Text>
+                  <View style={[s.statusPill, { backgroundColor: statusDim, borderColor: statusBorder }]}>
+                    <View style={[s.statusDot, { backgroundColor: statusColor }]} />
+                    <Text style={[s.statusPillText, { color: statusColor }]}>
+                      {data?.status}
+                    </Text>
                   </View>
                 </View>
-              </View>
+              </LinearGradient>
             </View>
 
-            {/* Espacement en bas */}
-            <View style={styles.bottomSpacer} />
+            <View style={{ height: 40 }} />
           </ScrollView>
         </Animated.View>
       </BlurView>
@@ -452,228 +462,255 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  modalOverlay: {
+const s = StyleSheet.create({
+  overlay: {
     flex: 1,
     justifyContent: "flex-end",
   },
-  modalContainer: {
-    backgroundColor: "white",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: height * 0.9,
+  sheet: {
+    backgroundColor: "#0D1340",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: height * 0.92,
     minHeight: height * 0.6,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
   },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.20)",
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+
+  // Header
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
   },
-  closeButton: {
-    padding: 8,
+  headerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveBtn: {
+    backgroundColor: "rgba(0,230,118,0.12)",
+    borderColor: "rgba(0,230,118,0.28)",
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "white",
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
   },
-  saveButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    padding: 8,
-    borderRadius: 8,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  modalContent: {
-    flex: 1,
-  },
+
+  scroll: { paddingBottom: 20 },
+
+  // Section
   section: {
-    margin: 20,
-    marginBottom: 0,
+    marginHorizontal: 16,
+    marginTop: 20,
+    gap: 14,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    gap: 10,
+  },
+  sectionIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
-  inputContainer: {
-    marginBottom: 16,
-  },
+
+  // Inputs
+  inputContainer: { gap: 6 },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
+    color: "rgba(255,255,255,0.40)",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "rgba(255,255,255,0.10)",
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
-    color: "#1F2937",
-    backgroundColor: "#F9FAFB",
+    fontSize: 15,
+    color: "#FFFFFF",
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   textArea: {
     height: 80,
     textAlignVertical: "top",
   },
-  selectorContainer: {
-    marginBottom: 20,
-  },
+
+  // Selector
+  selectorContainer: { gap: 10 },
   selectorHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    gap: 10,
+  },
+  selectorIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   selectorTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#374151",
-    marginLeft: 8,
+    color: "rgba(255,255,255,0.80)",
   },
   optionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
-  optionButton: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 16,
+  optionChip: {
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
-  optionButtonActive: {
-    backgroundColor: "#DBEAFE",
-    borderColor: "#3B82F6",
-  },
-  optionText: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  optionTextActive: {
-    color: "#3B82F6",
+  optionChipText: {
+    fontSize: 13,
     fontWeight: "600",
   },
-  volumeContainer: {
-    marginBottom: 20,
-  },
-  volumeHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  volumeLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
-    marginLeft: 8,
-  },
-  volumeSlider: {
-    paddingHorizontal: 16,
-  },
+
+  // Volume
+  volumeContainer: { gap: 12 },
   volumeTrack: {
     height: 6,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 3,
     position: "relative",
-    width: 200,
+    width: 240,
+    marginLeft: 4,
   },
   volumeProgress: {
     height: "100%",
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#00E5FF",
     borderRadius: 3,
   },
   volumeThumb: {
     position: "absolute",
     width: 16,
     height: 16,
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#00E5FF",
     borderRadius: 8,
     top: -5,
     marginLeft: -8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowColor: "#00E5FF",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
     elevation: 5,
   },
-  switchContainer: {
+
+  // Switch row
+  switchRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
   },
-  switchInfo: {
-    flexDirection: "row",
+  switchIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: "center",
-    flex: 1,
+    justifyContent: "center",
   },
-  switchLabels: {
-    marginLeft: 12,
-    flex: 1,
-  },
+  switchLabels: { flex: 1 },
   switchLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
-  switchDescription: {
-    fontSize: 12,
-    color: "#9CA3AF",
+  switchDesc: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.40)",
     marginTop: 2,
   },
-  summaryContainer: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+
+  // Summary
+  summaryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
     padding: 16,
+    gap: 0,
   },
-  summaryItem: {
+  summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    paddingVertical: 10,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   summaryLabel: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.40)",
   },
   summaryValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#1F2937",
+    color: "#FFFFFF",
   },
-  statusContainer: {
+  statusPill: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  bottomSpacer: {
-    height: 40,
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
 

@@ -6,6 +6,19 @@
         "autoIncrement": true
       },
       "ios": {
+        "image": "macos-sequoia-15.3-xcode-16.2",
+        "autoIncrement": true
+      },
+      "env": {
+        "EXPO_PUBLIC_BASE_URL": "https://api.rdsconnect.site"
+      }
+    },
+    "production-apk": {
+      "android": {
+        "buildType": "apk",
+        "autoIncrement": true
+      },
+      "ios": {
         "image": "macos-sequoia-15.3-xcode-16.2"
       },
       "env": {
@@ -15,6 +28,9 @@
     "preview": {
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_BASE_URL": "https://api.rdsconnect.site"
       }
     },
     "test": {

@@ -1,27 +1,20 @@
 {
   "expo": {
-    "name": " ",
+    "name": "RDS Info",
     "slug": "rds-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/rds-logo-white.jpg",
-    "backgroundColor": "green",
+    "backgroundColor": "#0A192F",
     "scheme": "rdsapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rds.mobile",
+      "buildNumber": "1.1",
       "infoPlist": {
-        "NSBonjourServices": [
-          "_tcp.local.",
-          "_tcp.local."
-        ],
-        "NSLocalNetworkUsageDescription": "Allow RDS Screen to discover devices on the local network.",
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "entitlements": {
-        "com.apple.developer.networking.multicast": true
       }
     },
     "android": {
@@ -39,11 +32,14 @@
               "scheme": "rdsconnect"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/rds-logo-black.png",
+        "foregroundImage": "./assets/images/rds-logo-white.jpg",
         "backgroundColor": "#0A192F"
       },
       "permissions": [
@@ -65,7 +61,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/rds-logo-white.jpg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0A192F"

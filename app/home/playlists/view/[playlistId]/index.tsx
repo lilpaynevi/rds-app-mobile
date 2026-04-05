@@ -216,7 +216,7 @@ const MediaViewerModal = ({
     (player) => {
       player.loop = true;
       player.muted = false;
-    }
+    },
   );
 
   useEffect(() => {
@@ -545,14 +545,14 @@ const PlaylistContent = ({ onBack }) => {
     try {
       await api.patch(
         `/playlists/${playlistId}/media/${editingMedia.id}/duration`,
-        { duration: newDuration }
+        { duration: newDuration },
       );
 
       // Mise à jour locale
       setMedia((prevMedia) =>
         prevMedia.map((m) =>
-          m.id === editingMedia.id ? { ...m, duration: newDuration } : m
-        )
+          m.id === editingMedia.id ? { ...m, duration: newDuration } : m,
+        ),
       );
 
       if (selectedTv != null) {
@@ -599,7 +599,7 @@ const PlaylistContent = ({ onBack }) => {
   // };
 
   const handleScheduleSave = async (scheduleData) => {
-    console.log("🚀 ~ handleScheduleSave ~ scheduleData:", scheduleData)
+    console.log("🚀 ~ handleScheduleSave ~ scheduleData:", scheduleData);
     try {
       setLoading(true);
       console.log("📥 handleScheduleSave reçu:", scheduleData);
@@ -697,7 +697,7 @@ const PlaylistContent = ({ onBack }) => {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -737,7 +737,7 @@ const PlaylistContent = ({ onBack }) => {
       const playlistData = playlistResponse.data;
       console.log(
         "🚀 ~ loadPlaylistContent ~ playlistData:",
-        JSON.stringify(playlistData)
+        JSON.stringify(playlistData),
       );
 
       setPlaylist(playlistData);
@@ -832,7 +832,7 @@ const PlaylistContent = ({ onBack }) => {
           style: "destructive",
           onPress: () => deleteMedia(mediaId),
         },
-      ]
+      ],
     );
   };
 
@@ -870,7 +870,7 @@ const PlaylistContent = ({ onBack }) => {
 
       const request = await api.patch(
         `/playlists/${playlistId}/reorder`,
-        orderUpdates
+        orderUpdates,
       );
       console.log("🚀 ~ handleReorderMedia ~ request:", request.data);
 
@@ -929,7 +929,7 @@ const PlaylistContent = ({ onBack }) => {
     if (status !== "granted") {
       Alert.alert(
         "Permission requise",
-        "Nous avons besoin de l'accès à votre galerie pour sélectionner des médias"
+        "Nous avons besoin de l'accès à votre galerie pour sélectionner des médias",
       );
       return;
     }
@@ -1016,7 +1016,7 @@ const PlaylistContent = ({ onBack }) => {
         `/playlists/${playlistId}/televisionId/${selectedTv.id}/status`,
         {
           isActive: newStatus,
-        }
+        },
       );
       setIsActive(newStatus);
 
@@ -1024,7 +1024,6 @@ const PlaylistContent = ({ onBack }) => {
         tvId: selectedTv.id,
         newPlaylistId: playlistId,
       });
-      
     } catch (error) {
       console.error("Erreur mise à jour statut:", error);
       Alert.alert("Erreur", "Impossible de mettre à jour le statut");
@@ -1462,289 +1461,641 @@ const PlaylistContent = ({ onBack }) => {
   );
 };
 
+const C = {
+  bgDeep: "#07091A",
+  bgMid: "#0D1130",
+  bgCard: "#111827",
+  accent: "#4F8EF7",
+  accentDim: "rgba(79,142,247,0.12)",
+  accentBorder: "rgba(79,142,247,0.28)",
+  cyan: "#00E5FF",
+  cyanDim: "rgba(0,229,255,0.10)",
+  cyanBorder: "rgba(0,229,255,0.25)",
+  success: "#00E676",
+  successDim: "rgba(0,230,118,0.10)",
+  successBorder: "rgba(0,230,118,0.25)",
+  warning: "#FFB300",
+  warningDim: "rgba(255,179,0,0.12)",
+  warningBorder: "rgba(255,179,0,0.28)",
+  danger: "#FF5252",
+  dangerDim: "rgba(255,82,82,0.10)",
+  dangerBorder: "rgba(255,82,82,0.28)",
+  white: "#FFFFFF",
+  white80: "rgba(255,255,255,0.80)",
+  white60: "rgba(255,255,255,0.60)",
+  white40: "rgba(255,255,255,0.40)",
+  white20: "rgba(255,255,255,0.20)",
+  white10: "rgba(255,255,255,0.08)",
+  white05: "rgba(255,255,255,0.04)",
+  border: "rgba(255,255,255,0.09)",
+};
+
 const styles = StyleSheet.create({
+  // ── Base ─────────────────────────────────────────────────────────────────
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: C.bgDeep,
   },
 
-  durationButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#e3f2fd",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-    marginRight: 8,
-  },
-  durationButtonText: {
-    fontSize: 13,
-    color: "#2575fc",
-    fontWeight: "600",
-  },
-
-  // Header
+  // ── Header ───────────────────────────────────────────────────────────────
   header: {
     paddingTop: Platform.OS === "ios" ? 44 : 30,
     paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
-
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginBottom: 15,
+    marginBottom: 14,
   },
-
   backButton: {
-    marginRight: 15,
+    marginRight: 14,
     padding: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 13,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
   headerInfo: {
     flex: 1,
   },
-
   headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 4,
+    fontSize: 22,
+    fontWeight: "800",
+    color: C.white,
+    marginBottom: 5,
+    letterSpacing: -0.4,
   },
-
   headerSubtitle: {
-    fontSize: 14,
-    color: "#B0BEC5",
-    marginRight: 8,
+    fontSize: 13,
+    color: C.white40,
+    marginRight: 6,
   },
-
   tvSelector: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
     paddingHorizontal: 20,
-    marginBottom: 15,
+    marginBottom: 14,
+    gap: 10,
   },
-
   actionButton: {
-    marginRight: 15,
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    padding: 9,
+    borderRadius: 12,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
   addButton: {
-    backgroundColor: "#00E5FF",
-    borderRadius: 25,
-    width: 50,
-    height: 50,
+    backgroundColor: C.cyan,
+    borderRadius: 14,
+    width: 46,
+    height: 46,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#00E5FF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: C.cyan,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
-
   activationContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    marginTop: 10,
+    marginHorizontal: 20,
+    marginTop: 6,
+    backgroundColor: C.white05,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
   },
-
   activationLabel: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "500",
+    fontSize: 14,
+    color: C.white80,
+    fontWeight: "600",
   },
 
-  // Liste des médias
-  mediaList: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-
-  gridList: {
-    paddingHorizontal: 15,
-  },
-
-  orderNumber: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#00E5FF",
-    minWidth: 30,
-    textAlign: "center",
-    marginRight: 15,
-  },
-
-  listItemContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  listThumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    overflow: "hidden",
-    marginRight: 15,
-    position: "relative",
-  },
-
-  videoListThumbnail: {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-  },
-
-  listImage: {
-    width: "100%",
-    height: "100%",
-  },
-
-  listPlayOverlay: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: -12 }, { translateY: -12 }],
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: 12,
-    padding: 6,
-  },
-
-  durationBadge: {
-    position: "absolute",
-    bottom: 4,
-    right: 4,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-
-  durationText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "500",
-  },
-
-  listContent: {
+  // ── Loading ───────────────────────────────────────────────────────────────
+  loadingContainer: {
     flex: 1,
     justifyContent: "center",
-  },
-
-  listTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#212529",
-    marginBottom: 4,
-  },
-
-  listMeta: {
-    flexDirection: "column",
-  },
-
-  listType: {
-    fontSize: 14,
-    color: "#6c757d",
-    marginBottom: 2,
-  },
-
-  listDate: {
-    fontSize: 12,
-    color: "#adb5bd",
-  },
-
-  listActions: {
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: C.bgDeep,
+  },
+  loadingText: {
+    color: C.white40,
+    fontSize: 15,
+    marginTop: 16,
+    fontWeight: "500",
   },
 
-  listDeleteButton: {
-    padding: 6,
-    marginRight: 10,
-  },
-
-  // Empty state
+  // ── Empty state ───────────────────────────────────────────────────────────
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 40,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: C.bgDeep,
   },
-
   emptyTitle: {
     fontSize: 20,
-    fontWeight: "600",
-    color: "#212529",
+    fontWeight: "700",
+    color: C.white,
     marginTop: 20,
   },
-
   emptySubtitle: {
     fontSize: 14,
-    color: "#6c757d",
+    color: C.white40,
     textAlign: "center",
     marginTop: 8,
+    lineHeight: 21,
   },
-
   emptyActionButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#00E5FF",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 20,
+    backgroundColor: C.cyan,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    marginTop: 24,
+    gap: 8,
+    shadowColor: C.cyan,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-
   emptyActionText: {
-    color: "#fff",
-    fontSize: 16,
-    marginLeft: 8,
+    color: C.white,
+    fontSize: 15,
+    fontWeight: "700",
   },
 
-  // Loading
-  loadingContainer: {
+  // ── Media list ────────────────────────────────────────────────────────────
+  mediaList: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  gridList: {
+    paddingHorizontal: 12,
+  },
+
+  // List view
+  orderNumber: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: C.cyan,
+    minWidth: 28,
+    textAlign: "center",
+    marginRight: 14,
+  },
+  listItemContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.bgCard,
+    borderRadius: 16,
+    marginBottom: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  listThumbnail: {
+    width: 72,
+    height: 72,
+    borderRadius: 11,
+    overflow: "hidden",
+    marginRight: 14,
+    position: "relative",
+    backgroundColor: C.white05,
+  },
+  videoListThumbnail: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
+  listImage: {
+    width: "100%",
+    height: "100%",
+  },
+  listPlayOverlay: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -12 }, { translateY: -12 }],
+    backgroundColor: "rgba(0,0,0,0.65)",
+    borderRadius: 10,
+    padding: 6,
+  },
+  durationBadge: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
+    backgroundColor: "rgba(0,0,0,0.70)",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  durationText: {
+    color: C.white,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  listContent: {
     flex: 1,
     justifyContent: "center",
+  },
+  listTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: C.white,
+    marginBottom: 4,
+  },
+  listMeta: {
+    flexDirection: "column",
+    gap: 2,
+  },
+  listType: {
+    fontSize: 13,
+    color: C.white40,
+  },
+  listDate: {
+    fontSize: 11,
+    color: C.white20,
+  },
+  listActions: {
+    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
+    gap: 6,
+  },
+  listDeleteButton: {
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: C.dangerDim,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
+  },
+  durationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.accentDim,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 5,
+  },
+  durationButtonText: {
+    fontSize: 12,
+    color: C.accent,
+    fontWeight: "600",
   },
 
-  loadingText: {
-    color: "#6c757d",
+  // Grid view
+  gridItemContainer: {
+    flex: 1,
+    margin: 5,
+  },
+  gridItem: {
+    backgroundColor: C.bgCard,
+    borderRadius: 14,
+    overflow: "hidden",
+    aspectRatio: 1,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  thumbnail: {
+    width: "100%",
+    height: "78%",
+  },
+  playOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: "22%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
+  mediaInfo: {
+    padding: 7,
+    height: "22%",
+  },
+  mediaTitle: {
+    color: C.white,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  mediaMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 3,
+  },
+  mediaType: {
+    color: C.white40,
+    fontSize: 10,
+    flex: 1,
+  },
+
+  // ── TV selection modal ────────────────────────────────────────────────────
+  tvModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.70)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tvModalContainer: {
+    backgroundColor: C.bgCard,
+    borderRadius: 24,
+    width: width * 0.9,
+    maxHeight: height * 0.7,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  tvModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  tvModalTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: C.white,
+  },
+  tvModalClose: {
+    padding: 6,
+    borderRadius: 10,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  tvList: {
+    flex: 1,
+  },
+  tvListContent: {
+    padding: 14,
+  },
+  tvItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 14,
+    marginBottom: 8,
+    backgroundColor: C.white05,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  tvItemSelected: {
+    backgroundColor: C.cyanDim,
+    borderColor: C.cyanBorder,
+  },
+  tvItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  tvItemInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  tvItemName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: C.white,
+    marginBottom: 3,
+  },
+  tvItemNameSelected: {
+    color: C.cyan,
+  },
+  tvItemLocation: {
+    fontSize: 13,
+    color: C.white40,
+  },
+  noTvContainer: {
+    padding: 40,
+    alignItems: "center",
+  },
+  noTvText: {
+    fontSize: 15,
+    color: C.white40,
+    textAlign: "center",
+  },
+
+  // ── Reorder modal ─────────────────────────────────────────────────────────
+  reorderList: {
+    flex: 1,
+    padding: 14,
+  },
+  reorderItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.white05,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  reorderItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  reorderIndex: {
     fontSize: 16,
+    fontWeight: "800",
+    color: C.cyan,
+    minWidth: 28,
+    textAlign: "center",
+    marginRight: 14,
+  },
+  reorderThumbnail: {
+    width: 54,
+    height: 54,
+    borderRadius: 10,
+    overflow: "hidden",
+    marginRight: 14,
+    backgroundColor: C.white05,
+  },
+  reorderInfo: {
+    flex: 1,
+  },
+  reorderTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.white,
+    marginBottom: 4,
+  },
+  reorderType: {
+    fontSize: 12,
+    color: C.white40,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  reorderControls: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 5,
+  },
+  reorderButton: {
+    backgroundColor: C.cyanDim,
+    borderWidth: 1,
+    borderColor: C.cyanBorder,
+    borderRadius: 10,
+    padding: 8,
+  },
+  reorderButtonDisabled: {
+    backgroundColor: C.white05,
+    borderColor: C.border,
+  },
+
+  // ── Add media modal ───────────────────────────────────────────────────────
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  modalCloseButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: C.white,
+  },
+  modalUploadButton: {
+    backgroundColor: C.cyan,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+    shadowColor: C.cyan,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalUploadButtonDisabled: {
+    backgroundColor: C.white10,
+    shadowOpacity: 0,
+  },
+  modalUploadButtonText: {
+    color: C.white,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  modalSaveButton: {
+    backgroundColor: C.cyan,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  modalSaveButtonText: {
+    color: C.white,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  modalContent: {
+    flex: 1,
+  },
+  pickerContainer: {
+    padding: 20,
+  },
+  pickerButton: {
+    borderWidth: 1.5,
+    borderColor: C.cyanBorder,
+    borderStyle: "dashed",
+    borderRadius: 16,
+    padding: 40,
+    alignItems: "center",
+    backgroundColor: C.cyanDim,
+  },
+  pickerText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.white,
+    marginTop: 14,
+  },
+  pickerSubtext: {
+    fontSize: 13,
+    color: C.white40,
+    marginTop: 5,
+  },
+  selectedFilesContainer: {
+    paddingHorizontal: 20,
     marginTop: 20,
   },
+  selectedFilesTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.white,
+    marginBottom: 14,
+  },
+  selectedFilesList: {
+    flexDirection: "row",
+  },
+  selectedFileItem: {
+    marginRight: 14,
+    position: "relative",
+  },
+  selectedFileThumbnail: {
+    width: 78,
+    height: 78,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: C.cyan,
+  },
+  removeFileButton: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: C.bgCard,
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
+  },
+  videoIndicator: {
+    position: "absolute",
+    bottom: 5,
+    left: 5,
+    backgroundColor: "rgba(0,0,0,0.70)",
+    borderRadius: 8,
+    padding: 4,
+  },
 
-  // Modal de visualisation
+  // ── Viewer modal ──────────────────────────────────────────────────────────
   modalViewerContainer: {
     flex: 1,
     backgroundColor: "#000",
   },
-
   modalViewerHeader: {
     position: "absolute",
     top: 0,
@@ -1756,45 +2107,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     paddingTop: 50,
-    backgroundColor: "rgba(0,0,0,0.8)",
+    backgroundColor: "rgba(0,0,0,0.80)",
     zIndex: 1000,
   },
-
   closeButton: {
-    padding: 8,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 20,
+    padding: 9,
+    backgroundColor: C.white10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
   modalTitleContainer: {
     flex: 1,
     alignItems: "center",
     paddingHorizontal: 20,
   },
-
   modalViewerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.white,
     textAlign: "center",
   },
-
   modalCounter: {
-    fontSize: 14,
-    color: "#adb5bd",
-    marginTop: 4,
+    fontSize: 13,
+    color: C.white40,
+    marginTop: 3,
   },
-
   deleteButton: {
-    padding: 8,
-    backgroundColor: "rgba(255,107,107,0.2)",
-    borderRadius: 20,
+    padding: 9,
+    backgroundColor: C.dangerDim,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
   },
-
-  modalContent: {
-    flex: 1,
-  },
-
   videoContainer: {
     width: "100%",
     height: "100%",
@@ -1802,18 +2147,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "relative",
   },
-
   fullscreenVideo: {
     width: width,
     height: height,
   },
-
   fullscreenImage: {
     width: width,
     height: height,
     resizeMode: "contain",
   },
-
   videoControls: {
     position: "absolute",
     top: 0,
@@ -1822,17 +2164,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.1)",
+    backgroundColor: "rgba(0,0,0,0.10)",
   },
-
   playButton: {
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.60)",
     borderRadius: 40,
     padding: 20,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
+    borderWidth: 1.5,
+    borderColor: C.white20,
   },
-
   navigationContainer: {
     position: "absolute",
     bottom: 50,
@@ -1840,661 +2180,281 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 30,
+    paddingHorizontal: 28,
     zIndex: 1000,
   },
-
   navButton: {
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.65)",
     borderRadius: 30,
-    padding: 15,
+    padding: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderColor: C.white20,
   },
-
   navButtonDisabled: {
-    backgroundColor: "rgba(0,0,0,0.3)",
-    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(0,0,0,0.30)",
+    borderColor: "rgba(255,255,255,0.08)",
   },
 
-  // Modal d'ajout
-  modalContainer: {
-    flex: 1,
-  },
-
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    paddingTop: 50,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
-  },
-
-  modalCloseButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-
-  modalUploadButton: {
-    backgroundColor: "#00E5FF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-
-  modalUploadButtonDisabled: {
-    backgroundColor: "#666",
-  },
-
-  modalUploadButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  modalSaveButton: {
-    backgroundColor: "#00E5FF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-
-  modalSaveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  pickerContainer: {
-    padding: 20,
-  },
-
-  pickerButton: {
-    borderWidth: 2,
-    borderColor: "#00E5FF",
-    borderStyle: "dashed",
-    borderRadius: 12,
-    padding: 40,
-    alignItems: "center",
-    backgroundColor: "rgba(0,229,255,0.1)",
-  },
-
-  pickerText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#fff",
-    marginTop: 12,
-  },
-
-  pickerSubtext: {
-    fontSize: 14,
-    color: "#B0BEC5",
-    marginTop: 4,
-  },
-
-  selectedFilesContainer: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-  },
-
-  selectedFilesTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 15,
-  },
-
-  selectedFilesList: {
-    flexDirection: "row",
-  },
-
-  selectedFileItem: {
-    marginRight: 15,
-    position: "relative",
-  },
-
-  selectedFileThumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#00E5FF",
-  },
-
-  removeFileButton: {
-    position: "absolute",
-    top: -8,
-    right: -8,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-
-  videoIndicator: {
-    position: "absolute",
-    bottom: 4,
-    left: 4,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    borderRadius: 10,
-    padding: 4,
-  },
-
-  // Modal sélection TV
-
-  tvModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  tvModalContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    width: width * 0.9,
-    maxHeight: height * 0.7,
-    overflow: "hidden",
-  },
-
-  tvModalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e9ecef",
-  },
-
-  tvModalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#212529",
-  },
-
-  tvModalClose: {
-    padding: 4,
-  },
-
-  tvList: {
-    flex: 1, // Pour le ScrollView lui-même
-  },
-
-  tvListContent: {
-    padding: 16, // Pour le contenu du ScrollView
-  },
-
-  tvItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    marginBottom: 8,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-
-  tvItemSelected: {
-    backgroundColor: "rgba(0,229,255,0.1)",
-    borderColor: "#00E5FF",
-  },
-
-  tvItemContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-
-  tvItemInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-
-  tvItemName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#212529",
-    marginBottom: 4,
-  },
-
-  tvItemNameSelected: {
-    color: "#00E5FF",
-  },
-
-  tvItemLocation: {
-    fontSize: 14,
-    color: "#6c757d",
-  },
-
-  noTvContainer: {
-    padding: 40,
-    alignItems: "center",
-  },
-
-  noTvText: {
-    fontSize: 16,
-    color: "#6c757d",
-    textAlign: "center",
-  },
-
-  // Modal réorganisation
-  reorderList: {
-    flex: 1,
-    padding: 20,
-  },
-
-  reorderItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-  },
-
-  reorderItemContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-
-  reorderIndex: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#00E5FF",
-    minWidth: 30,
-    textAlign: "center",
-    marginRight: 15,
-  },
-
-  reorderThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    overflow: "hidden",
-    marginRight: 15,
-  },
-
-  reorderInfo: {
-    flex: 1,
-  },
-
-  reorderTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 4,
-  },
-
-  reorderType: {
-    fontSize: 14,
-    color: "#B0BEC5",
-  },
-
-  reorderControls: {
-    flexDirection: "column",
-    alignItems: "center",
-  },
-
-  reorderButton: {
-    backgroundColor: "rgba(0,229,255,0.2)",
-    borderRadius: 20,
-    padding: 8,
-    marginVertical: 2,
-  },
-
-  reorderButtonDisabled: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-
-  // Mode grille
-  gridItemContainer: {
-    flex: 1,
-    margin: 6,
-  },
-
-  gridItem: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    overflow: "hidden",
-    aspectRatio: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  thumbnail: {
-    width: "100%",
-    height: "80%",
-  },
-
-  playOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: "20%",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.2)",
-  },
-
-  mediaInfo: {
-    padding: 8,
-    height: "20%",
-  },
-
-  mediaTitle: {
-    color: "#212529",
-    fontSize: 12,
-    fontWeight: "600",
-    numberOfLines: 1,
-  },
-
-  mediaMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 4,
-  },
-
-  mediaType: {
-    color: "#6c757d",
-    fontSize: 10,
-    flex: 1,
-  },
-
+  // ── Schedule card ─────────────────────────────────────────────────────────
   scheduleSection: {
-    backgroundColor: "#fff",
+    backgroundColor: C.bgCard,
     marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
   scheduleSectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
   },
-
   scheduleSectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#212529",
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.white,
   },
-
   scheduleAddButton: {
     padding: 8,
+    borderRadius: 10,
+    backgroundColor: C.accentDim,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
   },
-
   scheduleList: {
     flexDirection: "row",
   },
-
   scheduleCard: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
+    backgroundColor: C.white05,
+    borderRadius: 12,
     padding: 12,
     marginRight: 12,
     width: 200,
-    borderWidth: 2,
-    borderColor: "transparent",
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
   scheduleCardActive: {
-    borderColor: "#00E5FF",
-    backgroundColor: "#f0fdff",
+    backgroundColor: C.cyanDim,
+    borderColor: C.cyanBorder,
   },
-
   scheduleCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
   },
-
   scheduleCardTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#212529",
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.white,
     flex: 1,
   },
-
   scheduleStatus: {
-    backgroundColor: "#e9ecef",
+    backgroundColor: C.white10,
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
-
   scheduleStatusActive: {
-    backgroundColor: "#00E5FF",
+    backgroundColor: C.cyan,
   },
-
   scheduleStatusText: {
-    fontSize: 12,
-    color: "#666",
-    fontWeight: "500",
+    fontSize: 11,
+    color: C.white40,
+    fontWeight: "600",
   },
-
   scheduleStatusTextActive: {
-    color: "#fff",
+    color: C.white,
   },
-
   scheduleCardTime: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 13,
+    color: C.white60,
     marginBottom: 8,
   },
-
   scheduleCardDays: {
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: 4,
   },
-
   scheduleCardDay: {
-    backgroundColor: "#dee2e6",
+    backgroundColor: C.white10,
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 4,
-    marginBottom: 4,
+    paddingVertical: 3,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
   scheduleCardDayText: {
     fontSize: 10,
-    color: "#495057",
-    fontWeight: "500",
+    color: C.white60,
+    fontWeight: "600",
   },
 
-  // Modal programmation
+  // ── Schedule modal ────────────────────────────────────────────────────────
   scheduleModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.70)",
     justifyContent: "flex-end",
   },
-
   scheduleModalContainer: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: C.bgCard,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     maxHeight: height * 0.85,
+    borderTopWidth: 1,
+    borderColor: C.border,
   },
-
   scheduleModalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#e9ecef",
+    borderBottomColor: C.border,
   },
-
   scheduleModalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#212529",
+    fontSize: 17,
+    fontWeight: "700",
+    color: C.white,
   },
-
   scheduleModalClose: {
-    padding: 4,
+    padding: 7,
+    borderRadius: 10,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
   scheduleModalContent: {
     padding: 20,
   },
-
   scheduleFormGroup: {
     marginBottom: 20,
   },
-
   scheduleFormLabel: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#212529",
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.white60,
     marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
-
   scheduleFormInput: {
     borderWidth: 1,
-    borderColor: "#dee2e6",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: "#212529",
+    borderColor: C.border,
+    borderRadius: 12,
+    padding: 13,
+    fontSize: 15,
+    color: C.white,
+    backgroundColor: C.white05,
   },
-
   scheduleFormTextArea: {
     height: 80,
     textAlignVertical: "top",
   },
-
   scheduleFormRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   scheduleDateText: {
-    fontSize: 16,
-    color: "#495057",
+    fontSize: 15,
+    color: C.white80,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    backgroundColor: C.white05,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#dee2e6",
+    borderColor: C.border,
   },
-
   scheduleDaysContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
-
   scheduleDayButton: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: C.white05,
     borderWidth: 1,
-    borderColor: "#dee2e6",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    minWidth: 45,
+    borderColor: C.border,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 13,
+    minWidth: 46,
     alignItems: "center",
   },
-
   scheduleDayButtonActive: {
-    backgroundColor: "#00E5FF",
-    borderColor: "#00E5FF",
+    backgroundColor: C.cyanDim,
+    borderColor: C.cyanBorder,
   },
-
   scheduleDayText: {
-    fontSize: 14,
-    color: "#495057",
-    fontWeight: "500",
+    fontSize: 13,
+    color: C.white40,
+    fontWeight: "600",
   },
-
   scheduleDayTextActive: {
-    color: "#fff",
+    color: C.cyan,
   },
-
   scheduleModalActions: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: "#e9ecef",
+    borderTopColor: C.border,
   },
-
   scheduleDeleteButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    backgroundColor: C.dangerDim,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 11,
+    gap: 6,
   },
-
   scheduleDeleteButtonText: {
-    color: "#FF6B6B",
-    marginLeft: 8,
-    fontWeight: "500",
+    color: C.danger,
+    fontWeight: "600",
+    fontSize: 14,
   },
-
   scheduleModalButtonsRight: {
     flexDirection: "row",
+    gap: 10,
   },
-
   scheduleCancelButton: {
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginRight: 12,
+    paddingHorizontal: 18,
+    borderRadius: 11,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-
   scheduleCancelButtonText: {
-    color: "#666",
-    fontSize: 16,
-    fontWeight: "500",
+    color: C.white40,
+    fontSize: 14,
+    fontWeight: "600",
   },
-
   scheduleSaveButton: {
-    backgroundColor: "#00E5FF",
+    backgroundColor: C.cyan,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 11,
+    shadowColor: C.cyan,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  scheduleSaveButtonText: {
+    color: C.white,
+    fontSize: 14,
+    fontWeight: "700",
   },
 
-  scheduleSaveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+  // ── Misc ─────────────────────────────────────────────────────────────────
+  bottomPadding: {
+    height: 40,
   },
 });
 

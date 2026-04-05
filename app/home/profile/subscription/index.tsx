@@ -18,6 +18,8 @@ import api from "@/scripts/fetch.api";
 import { getMyTVs } from "@/requests/tv.requests";
 import { Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { FlatList } from "react-native-gesture-handler";
 import { cancelSubscription } from "@/requests/stripe.requests";
 
@@ -79,7 +81,7 @@ const SubscriptionScreen = () => {
 
       Alert.alert(
         "Sélection insuffisante",
-        `Vous devez sélectionner ${needToSelect} TV(s) supplémentaire(s) pour ramener votre total à ${maxScreens} écrans.`
+        `Vous devez sélectionner ${needToSelect} TV(s) supplémentaire(s) pour ramener votre total à ${maxScreens} écrans.`,
       );
       return;
     }
@@ -94,7 +96,7 @@ const SubscriptionScreen = () => {
           style: "destructive",
           onPress: processCancellation,
         },
-      ]
+      ],
     );
   };
 
@@ -131,13 +133,13 @@ const SubscriptionScreen = () => {
       Alert.alert(
         "Annulation programmée",
         `${selectedTVs.length} TV(s) ont été supprimées. Votre abonnement sera annulé le ${formatDate(subscriptionData.currentPeriodEnd)}.`,
-        [{ text: "OK", onPress: loadSubscriptionData }]
+        [{ text: "OK", onPress: loadSubscriptionData }],
       );
     } catch (error) {
       console.error("❌ Erreur annulation:", error);
       Alert.alert(
         "Erreur",
-        error?.response?.data?.message || "Impossible d'annuler l'abonnement"
+        error?.response?.data?.message || "Impossible d'annuler l'abonnement",
       );
     } finally {
       setCancelling(false);
@@ -154,17 +156,17 @@ const SubscriptionScreen = () => {
       setTVS(getUserTVs);
 
       const currentTVCount = subscription.find(
-        (it) => it.plan.planType === "MAIN"
+        (it) => it.plan.planType === "MAIN",
       )?.usedScreens;
 
       const optionTVCount =
         Number(
           subscription.find((it) => it.plan.planType === "MAIN")
-            ?.currentMaxScreens
+            ?.currentMaxScreens,
         ) - baseScreens;
 
       const stripeSubscriptionId = subscription.find(
-        (it) => it.plan.planType === "MAIN"
+        (it) => it.plan.planType === "MAIN",
       )?.stripeSubscriptionId;
 
       const maxScreensAfterCancel =
@@ -175,7 +177,7 @@ const SubscriptionScreen = () => {
 
       console.log(
         "🚀 ~ handleCancelSubscription ~ currentTVCount:",
-        currentTVCount
+        currentTVCount,
       );
 
       if (optionTVCount > 0) {
@@ -188,7 +190,7 @@ const SubscriptionScreen = () => {
               text: "Allez vers Modifier ma capacité d'écran",
               onPress: () => router.navigate("/updateOptionSubscription"),
             },
-          ]
+          ],
         );
       }
 
@@ -206,7 +208,7 @@ const SubscriptionScreen = () => {
                 text: "Supprimer des TVs",
                 onPress: () => router.navigate("/home/tv/MyTVScreen"),
               },
-            ]
+            ],
           );
         } else {
           Alert.alert(
@@ -225,13 +227,13 @@ const SubscriptionScreen = () => {
                       Alert.alert(
                         "Annulation prise en compte",
                         `L'annulation de votre abonnement a été pris en compte ! Vous allez recevoir un mail de confirmation`,
-                        [{ text: "OK", onPress: () => router.back() }]
+                        [{ text: "OK", onPress: () => router.back() }],
                       );
                     } else {
                       Alert.alert(
                         "Erreur lors de la requete",
                         `Une erreur vient de survenir, veuillez réessayez !`,
-                        [{ text: "OK" }]
+                        [{ text: "OK" }],
                       );
                     }
                   } catch (error) {
@@ -239,7 +241,7 @@ const SubscriptionScreen = () => {
                   }
                 },
               },
-            ]
+            ],
           );
         }
       }
@@ -321,7 +323,7 @@ const SubscriptionScreen = () => {
 
       // ✅ Récupérer l'abonnement actif (pas les addons)
       const activeSubscription = subscription?.find(
-        (sub) => sub.status === "ACTIVE" && sub.plan.planType === "MAIN"
+        (sub) => sub.status === "ACTIVE" && sub.plan.planType === "MAIN",
       );
 
       if (!activeSubscription) {
@@ -334,7 +336,7 @@ const SubscriptionScreen = () => {
 
       // ✅ Calculer les écrans supplémentaires (addons)
       const screenAbo = subscription?.find(
-        (sub) => sub.status === "ACTIVE" && sub.plan.planType === "MAIN"
+        (sub) => sub.status === "ACTIVE" && sub.plan.planType === "MAIN",
       );
 
       const totalExtraScreens =
@@ -435,7 +437,7 @@ const SubscriptionScreen = () => {
 
   const handleUpgradeScreens = () => {
     const hasOpionPlan = subscription.find(
-      (it) => it.plan.planType == "OPTION"
+      (it) => it.plan.planType == "OPTION",
     );
 
     if (hasOpionPlan) {
@@ -459,27 +461,27 @@ const SubscriptionScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+      <LinearGradient colors={["#0A0E27", "#0F1642", "#0D1B4B"]} style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#00E5FF" />
         <Text style={styles.loadingText}>Chargement...</Text>
-      </View>
+      </LinearGradient>
     );
   }
 
   if (!subscriptionData) {
     return (
-      <View style={styles.errorContainer}>
+      <LinearGradient colors={["#0A0E27", "#0F1642", "#0D1B4B"]} style={styles.errorContainer}>
         <Text style={styles.errorTitle}>Aucun abonnement</Text>
         <Text style={styles.errorText}>
           Vous n'avez pas encore d'abonnement actif
         </Text>
         <TouchableOpacity
           style={styles.subscribeButton}
-          onPress={() => router.push("/pricing")}
+          onPress={() => router.push("/PaymentScreen")}
         >
           <Text style={styles.subscribeButtonText}>Voir les offres</Text>
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
     );
   }
 
@@ -493,22 +495,25 @@ const SubscriptionScreen = () => {
   const totalPrice = basePrice + addonPrice;
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#363E49" />
-
+    <LinearGradient colors={["#0A0E27", "#0F1642", "#0D1B4B"]} style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" />
+      <SafeAreaView style={{ flex: 1 }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E5FF" colors={["#00E5FF"]} />
         }
       >
         {/* Header */}
-        <View style={styles.header}>
+        <LinearGradient
+          colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.02)"]}
+          style={styles.header}
+        >
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backIcon}>←</Text>
+            <Ionicons name="arrow-back" size={18} color="rgba(255,255,255,0.80)" />
           </TouchableOpacity>
 
           <View style={styles.headerContent}>
@@ -530,15 +535,16 @@ const SubscriptionScreen = () => {
             <View
               style={[
                 styles.statusBadge,
-                { backgroundColor: getStatusColor(subscriptionData.status) },
+                { backgroundColor: getStatusColor(subscriptionData.status) + "22", borderColor: getStatusColor(subscriptionData.status) + "55" },
               ]}
             >
-              <Text style={styles.statusText}>
+              <View style={[styles.statusDot, { backgroundColor: getStatusColor(subscriptionData.status) }]} />
+              <Text style={[styles.statusText, { color: getStatusColor(subscriptionData.status) }]}>
                 {getStatusText(subscriptionData.status)}
               </Text>
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Cartes d'utilisation */}
         <View style={styles.metricsContainer}>
@@ -829,565 +835,278 @@ const SubscriptionScreen = () => {
           </View>
         </View>
       </Modal>
-    </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
+// ─── Remplace uniquement les styles ───────────────────────────────────────────
+
+const C = {
+  bgDeep: "#07091A",
+  bgMid: "#0D1130",
+  bgCard: "#111827",
+  bgCardAlt: "#0F172A",
+  accent: "#4F8EF7",
+  accentDim: "rgba(79,142,247,0.12)",
+  accentBorder: "rgba(79,142,247,0.25)",
+  cyan: "#00E5FF",
+  cyanDim: "rgba(0,229,255,0.10)",
+  cyanBorder: "rgba(0,229,255,0.22)",
+  success: "#00E676",
+  successDim: "rgba(0,230,118,0.10)",
+  warning: "#FFB300",
+  warningDim: "rgba(255,179,0,0.12)",
+  warningBorder: "rgba(255,179,0,0.28)",
+  danger: "#FF5252",
+  dangerDim: "rgba(255,82,82,0.10)",
+  dangerBorder: "rgba(255,82,82,0.28)",
+  white: "#FFFFFF",
+  white80: "rgba(255,255,255,0.80)",
+  white60: "rgba(255,255,255,0.60)",
+  white40: "rgba(255,255,255,0.40)",
+  white20: "rgba(255,255,255,0.20)",
+  white10: "rgba(255,255,255,0.08)",
+  white05: "rgba(255,255,255,0.04)",
+  border: "rgba(255,255,255,0.09)",
+};
+
 const styles = StyleSheet.create({
-  // ... (gardez tous vos styles existants)
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-
-  modalContainer: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "90%",
-    paddingBottom: 20,
-  },
-
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginBottom: 4,
-  },
-
-  modalSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-
-  modalCloseButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  infoBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#EFF6FF",
-    padding: 12,
-    marginHorizontal: 20,
-    marginTop: 12,
-    borderRadius: 12,
-  },
-
-  infoBarLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 8,
-  },
-
-  infoBarText: {
-    fontSize: 13,
-    color: "#1E40AF",
-    flex: 1,
-  },
-
-  selectionBadge: {
-    backgroundColor: "#3B82F6",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-
-  selectionBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#fff",
-  },
-
-  quickSelectButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F5F3FF",
-    marginHorizontal: 20,
-    marginTop: 12,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "#DDD6FE",
-  },
-
-  quickSelectText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#667eea",
-  },
-
-  tvList: {
-    padding: 20,
-    paddingTop: 12,
-  },
-
-  tvItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-
-  tvItemSelected: {
-    backgroundColor: "#FEF2F2",
-    borderColor: "#EF4444",
-  },
-
-  tvItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 12,
-  },
-
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#D1D5DB",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  checkboxSelected: {
-    backgroundColor: "#EF4444",
-    borderColor: "#EF4444",
-  },
-
-  tvIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  tvIconOnline: {
-    backgroundColor: "#D1FAE5",
-  },
-
-  tvIconOffline: {
-    backgroundColor: "#E5E7EB",
-  },
-
-  tvIconText: {
-    fontSize: 24,
-  },
-
-  tvInfo: {
-    flex: 1,
-  },
-
-  tvName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginBottom: 4,
-  },
-
-  tvMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 2,
-  },
-
-  tvStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-
-  tvStatus: {
-    fontSize: 13,
-    color: "#6B7280",
-  },
-
-  tvCode: {
-    fontSize: 13,
-    color: "#9CA3AF",
-  },
-
-  tvLastSeen: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    marginTop: 2,
-  },
-
-  selectedBadge: {
-    backgroundColor: "#EF4444",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-
-  selectedBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#fff",
-  },
-
-  emptyList: {
-    padding: 40,
-    alignItems: "center",
-  },
-
-  emptyListText: {
-    fontSize: 16,
-    color: "#9CA3AF",
-  },
-
-  modalFooter: {
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-    padding: 20,
-    gap: 16,
-  },
-
-  footerInfo: {
-    gap: 4,
-  },
-
-  footerInfoText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-
-  footerInfoValue: {
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-
-  footerWarning: {
-    fontSize: 13,
-    color: "#EF4444",
-    fontWeight: "500",
-  },
-
-  footerButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-
-  cancelButton: {
-    flex: 1,
-    backgroundColor: "#F3F4F6",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-
-  confirmButton: {
-    flex: 1,
-    flexDirection: "row",
-    backgroundColor: "#EF4444",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-
-  confirmButtonDisabled: {
-    backgroundColor: "#D1D5DB",
-    opacity: 0.6,
-  },
-
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  // ✅ Ajoutez ces nouveaux styles :
-  progressBar: {
-    height: 8,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 4,
-    marginVertical: 8,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#4F46E5",
-    borderRadius: 4,
-  },
-  metricExtra: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    marginTop: 2,
-  },
-  billingInterval: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-    textAlign: "right",
-  },
-  billingBreakdown: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.6)",
-    textAlign: "right",
-    marginTop: 4,
-  },
-  actionsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  dangerButton: {
-    backgroundColor: "#FEE2E2",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#FCA5A5",
-  },
-  dangerButtonText: {
-    color: "#DC2626",
-    fontWeight: "600",
-    fontSize: 16,
-  },
-  subscribeButton: {
-    backgroundColor: "#4F46E5",
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 20,
-  },
-  subscribeButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 16,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginBottom: 8,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#6B7280",
-  },
-
+  // ── Base ────────────────────────────────────────────────────────────────────
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: C.bgDeep,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: C.bgDeep,
   },
-
+  loadingText: {
+    marginTop: 14,
+    fontSize: 15,
+    color: C.white60,
+    fontWeight: "500",
+  },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: C.bgDeep,
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: C.white,
+    marginBottom: 8,
+    textAlign: "center",
   },
   errorText: {
-    fontSize: 16,
-    color: "#EF4444",
+    fontSize: 15,
+    color: C.white40,
+    textAlign: "center",
+    lineHeight: 22,
   },
+
+  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: "#363E49",
-    paddingTop: 50,
-    paddingBottom: 30,
+    backgroundColor: C.bgMid,
+    paddingTop: 55,
+    paddingBottom: 32,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: C.border,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 13,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 22,
   },
   backIcon: {
-    fontSize: 20,
-    color: "#fff",
-    fontWeight: "bold",
+    fontSize: 18,
+    color: C.white,
+    fontWeight: "700",
   },
   headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 20,
+    marginBottom: 14,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: 4,
+    fontSize: 13,
+    color: C.white40,
+    marginBottom: 5,
+    fontWeight: "500",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
+    fontSize: 26,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: -0.5,
   },
   upgradeButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 16,
+    backgroundColor: C.accentDim,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 12,
   },
   upgradeButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
+    color: C.accent,
+    fontWeight: "700",
+    fontSize: 13,
   },
   statusContainer: {
     alignItems: "flex-start",
+    marginTop: 4,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
     marginBottom: 4,
   },
   statusText: {
-    color: "#fff",
-    fontWeight: "600",
+    color: C.white,
+    fontWeight: "700",
     fontSize: 12,
+    letterSpacing: 0.4,
   },
   statusSubtext: {
     fontSize: 12,
-    color: "rgba(255, 255, 255, 0.7)",
+    color: C.white40,
   },
+
+  // ── Metrics ─────────────────────────────────────────────────────────────────
   metricsContainer: {
-    padding: 20,
+    padding: 16,
   },
   metricsGrid: {
     flexDirection: "row",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   metricCard: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: C.bgCard,
     borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    padding: 18,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   metricHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   metricTitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 4,
+    fontSize: 13,
+    color: C.white40,
+    marginBottom: 5,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   metricValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1F2937",
+    fontSize: 22,
+    fontWeight: "800",
+    color: C.white,
+  },
+  metricExtra: {
+    fontSize: 11,
+    color: C.white40,
+    marginTop: 3,
   },
   metricSubtext: {
     fontSize: 12,
-    color: "#9CA3AF",
+    color: C.white40,
+    marginTop: 4,
   },
   iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#F3F4F6",
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: C.cyanDim,
+    borderWidth: 1,
+    borderColor: C.cyanBorder,
     justifyContent: "center",
     alignItems: "center",
   },
   iconText: {
     fontSize: 20,
   },
-  progressCircle: {
-    justifyContent: "center",
-    alignItems: "center",
+
+  // Progress bar
+  progressBar: {
+    height: 7,
+    backgroundColor: C.white10,
+    borderRadius: 6,
+    marginVertical: 10,
+    overflow: "hidden",
   },
-  progressBackground: {
-    position: "absolute",
-    width: "100%",
+  progressFill: {
     height: "100%",
-    borderRadius: 50,
-    borderWidth: 6,
-    borderColor: "#E5E7EB",
+    backgroundColor: C.accent,
+    borderRadius: 6,
   },
 
-  progressTextContainer: {
-    position: "absolute",
-  },
-  progressPercentage: {
-    fontSize: 12,
-    fontWeight: "bold",
-  },
+  // ── Billing card ────────────────────────────────────────────────────────────
   fullWidthCard: {
-    backgroundColor: "#1F2937",
+    backgroundColor: C.bgCard,
     borderRadius: 20,
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   billingHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 18,
   },
   billingTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.white,
   },
   billingPrice: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
+    fontSize: 26,
+    fontWeight: "800",
+    color: C.white,
+    textAlign: "right",
+  },
+  billingInterval: {
+    fontSize: 13,
+    color: C.white40,
+    textAlign: "right",
+    marginTop: 2,
+  },
+  billingBreakdown: {
+    fontSize: 11,
+    color: C.white40,
+    textAlign: "right",
+    marginTop: 3,
   },
   billingDivider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: C.border,
     marginBottom: 16,
   },
   billingRow: {
@@ -1398,113 +1117,464 @@ const styles = StyleSheet.create({
   },
   billingLabel: {
     fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
+    color: C.white60,
   },
   billingValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#fff",
+    color: C.white,
   },
   manageButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingVertical: 12,
-    borderRadius: 12,
+    backgroundColor: C.accentDim,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    paddingVertical: 13,
+    borderRadius: 13,
     alignItems: "center",
     marginTop: 16,
   },
   manageButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 16,
+    color: C.accent,
+    fontWeight: "700",
+    fontSize: 15,
   },
+
+  // ── Alerts ──────────────────────────────────────────────────────────────────
   alertContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    marginBottom: 14,
   },
   alertCard: {
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
     borderLeftWidth: 4,
-    borderLeftColor: "#F59E0B",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    borderColor: C.warningBorder,
+    borderLeftColor: C.warning,
+    backgroundColor: C.warningDim,
   },
   alertHeader: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 14,
   },
   alertIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 13,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 14,
+    backgroundColor: "rgba(255,179,0,0.15)",
   },
   alertIcon: {
     fontSize: 20,
-    color: "#fff",
   },
   alertContent: {
     flex: 1,
   },
   alertTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#92400E",
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.warning,
     marginBottom: 4,
   },
   alertText: {
-    fontSize: 14,
-    color: "#B45309",
-    lineHeight: 20,
+    fontSize: 13,
+    color: C.white60,
+    lineHeight: 19,
   },
   alertButton: {
-    backgroundColor: "#F59E0B",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
+    backgroundColor: "rgba(255,179,0,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,179,0,0.35)",
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 11,
     alignSelf: "flex-start",
   },
   alertButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
+    color: C.warning,
+    fontWeight: "700",
+    fontSize: 13,
   },
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
+  actionsContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 20,
+    marginTop: 6,
+  },
+  dangerButton: {
+    backgroundColor: C.dangerDim,
+    paddingVertical: 15,
+    borderRadius: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  dangerButtonText: {
+    color: C.danger,
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  subscribeButton: {
+    backgroundColor: C.accent,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 13,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  subscribeButtonText: {
+    color: C.white,
+    fontWeight: "700",
+    fontSize: 16,
+  },
+
+  // ── Features ────────────────────────────────────────────────────────────────
   featuresContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     marginBottom: 20,
   },
   featuresTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginBottom: 16,
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.white,
+    marginBottom: 14,
   },
   featureItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 12,
+    marginBottom: 10,
+    backgroundColor: C.bgCard,
+    padding: 14,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   featureIcon: {
-    fontSize: 16,
-    color: "#10B981",
+    fontSize: 15,
+    color: C.success,
     marginRight: 12,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   featureText: {
     fontSize: 14,
-    color: "#374151",
+    color: C.white80,
     flex: 1,
   },
+
+  // ── Bottom padding ───────────────────────────────────────────────────────────
   bottomPadding: {
-    height: 30,
+    height: 40,
+  },
+
+  // ── Modal overlay ────────────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: C.bgCard,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: "90%",
+    paddingBottom: 8,
+    borderTopWidth: 1,
+    borderColor: C.border,
+  },
+
+  // ── Modal header ─────────────────────────────────────────────────────────────
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: C.white,
+    marginBottom: 4,
+    maxWidth: width * 0.65,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: C.white40,
+  },
+  modalCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // ── Info bar ─────────────────────────────────────────────────────────────────
+  infoBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: C.accentDim,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 13,
+  },
+  infoBarLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 8,
+  },
+  infoBarText: {
+    fontSize: 13,
+    color: C.accent,
+    flex: 1,
+  },
+  selectionBadge: {
+    backgroundColor: C.accent,
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  selectionBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: C.white,
+  },
+
+  // ── Quick select ─────────────────────────────────────────────────────────────
+  quickSelectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.cyanDim,
+    borderWidth: 1,
+    borderColor: C.cyanBorder,
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: 13,
+    gap: 7,
+  },
+  quickSelectText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.cyan,
+  },
+
+  // ── TV list ──────────────────────────────────────────────────────────────────
+  tvList: {
+    padding: 16,
+    paddingTop: 10,
+  },
+  tvItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: C.white05,
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  tvItemSelected: {
+    backgroundColor: C.dangerDim,
+    borderColor: C.dangerBorder,
+  },
+  tvItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 12,
+  },
+  checkbox: {
+    width: 23,
+    height: 23,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: C.white20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxSelected: {
+    backgroundColor: C.danger,
+    borderColor: C.danger,
+  },
+  tvIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tvIconOnline: {
+    backgroundColor: C.successDim,
+    borderWidth: 1,
+    borderColor: "rgba(0,230,118,0.22)",
+  },
+  tvIconOffline: {
+    backgroundColor: C.white05,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  tvIconText: {
+    fontSize: 22,
+  },
+  tvInfo: {
+    flex: 1,
+  },
+  tvName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.white,
+    marginBottom: 4,
+  },
+  tvMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 2,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  tvStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  tvStatus: {
+    fontSize: 12,
+    color: C.white40,
+  },
+  tvCode: {
+    fontSize: 12,
+    color: C.white40,
+  },
+  tvLastSeen: {
+    fontSize: 11,
+    color: C.white20,
+    marginTop: 2,
+  },
+  selectedBadge: {
+    backgroundColor: C.dangerDim,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  selectedBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: C.danger,
+  },
+  emptyList: {
+    padding: 40,
+    alignItems: "center",
+  },
+  emptyListText: {
+    fontSize: 15,
+    color: C.white40,
+  },
+
+  // ── Modal footer ─────────────────────────────────────────────────────────────
+  modalFooter: {
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    padding: 16,
+    paddingBottom: 28,
+    gap: 14,
+  },
+  footerInfo: {
+    gap: 5,
+  },
+  footerInfoText: {
+    fontSize: 13,
+    color: C.white40,
+  },
+  footerInfoValue: {
+    fontWeight: "700",
+    color: C.white,
+  },
+  footerWarning: {
+    fontSize: 12,
+    color: C.danger,
+    fontWeight: "600",
+  },
+  footerButtons: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingVertical: 14,
+    borderRadius: 13,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: C.white60,
+  },
+  confirmButton: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: C.danger,
+    paddingVertical: 14,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.4,
+  },
+  confirmButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: C.white,
+  },
+
+  // ── Misc ─────────────────────────────────────────────────────────────────────
+  progressCircle: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  progressBackground: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    borderRadius: 50,
+    borderWidth: 6,
+    borderColor: C.white10,
+  },
+  progressTextContainer: {
+    position: "absolute",
+  },
+  progressPercentage: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.white,
   },
 });
 

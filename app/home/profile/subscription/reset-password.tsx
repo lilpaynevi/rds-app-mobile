@@ -1,23 +1,387 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  Animated,
+  Dimensions,
+  StatusBar,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 import api from "@/scripts/fetch.api";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.49:3000";
+const { width, height } = Dimensions.get("window");
 
+// ─── Palette ────────────────────────────────────────────────────────────────
+const C = {
+  bgDeep: "#0A0E27",
+  bgMid: "#0F1642",
+  accent: "#4F8EF7",
+  accentDark: "#2D6BE4",
+  accentDim: "rgba(79,142,247,0.12)",
+  accentBorder: "rgba(79,142,247,0.30)",
+  cyan: "#00E5FF",
+  cyanDim: "rgba(0,229,255,0.10)",
+  success: "#00E676",
+  successDim: "rgba(0,230,118,0.12)",
+  successBorder: "rgba(0,230,118,0.35)",
+  error: "#FF5252",
+  errorDim: "rgba(255,82,82,0.12)",
+  errorBorder: "rgba(255,82,82,0.35)",
+  warning: "#FFB74D",
+  white: "#FFFFFF",
+  white80: "rgba(255,255,255,0.80)",
+  white60: "rgba(255,255,255,0.60)",
+  white40: "rgba(255,255,255,0.40)",
+  white10: "rgba(255,255,255,0.08)",
+  white05: "rgba(255,255,255,0.04)",
+  border: "rgba(255,255,255,0.10)",
+};
+
+// ─── Hook animation d'entrée ─────────────────────────────────────────────────
+const useEntrance = (delay = 0) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 500,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        tension: 60,
+        friction: 10,
+        delay,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return { opacity, transform: [{ translateY }] };
+};
+
+// ─── Strength bar animée ─────────────────────────────────────────────────────
+const StrengthBar = ({ password }: { password: string }) => {
+  const widthAnim = useRef(new Animated.Value(0)).current;
+
+  const getStrength = () => {
+    if (!password) return { level: 0, color: C.border, label: "" };
+    if (password.length < 6)
+      return { level: 1, color: C.error, label: "Trop court" };
+    if (password.length < 8)
+      return { level: 2, color: C.warning, label: "Moyen" };
+    if (password.length < 10)
+      return { level: 3, color: C.accent, label: "Bon" };
+    return { level: 4, color: C.success, label: "Fort 💪" };
+  };
+
+  const { level, color, label } = getStrength();
+
+  useEffect(() => {
+    Animated.spring(widthAnim, {
+      toValue: level / 4,
+      tension: 60,
+      friction: 10,
+      useNativeDriver: false,
+    }).start();
+  }, [password]);
+
+  if (!password) return null;
+
+  return (
+    <View style={sb.wrapper}>
+      <View style={sb.track}>
+        <Animated.View
+          style={[
+            sb.fill,
+            {
+              backgroundColor: color,
+              width: widthAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0%", "100%"],
+              }),
+            },
+          ]}
+        />
+      </View>
+      <Text style={[sb.label, { color }]}>{label}</Text>
+    </View>
+  );
+};
+
+const sb = StyleSheet.create({
+  wrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+    gap: 10,
+  },
+  track: {
+    flex: 1,
+    height: 4,
+    backgroundColor: C.white10,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  fill: { height: "100%", borderRadius: 2 },
+  label: { fontSize: 11, fontWeight: "700", minWidth: 60, textAlign: "right" },
+});
+
+// ─── Composant Input ─────────────────────────────────────────────────────────
+interface InputFieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  secure: boolean;
+  showToggle: boolean;
+  onToggle: () => void;
+  status?: "idle" | "success" | "error";
+  hint?: string;
+}
+
+const InputField = ({
+  label,
+  value,
+  onChange,
+  placeholder,
+  secure,
+  showToggle,
+  onToggle,
+  status = "idle",
+  hint,
+}: InputFieldProps) => {
+  const focusAnim = useRef(new Animated.Value(0)).current;
+
+  const borderColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      status === "success"
+        ? C.successBorder
+        : status === "error"
+          ? C.errorBorder
+          : C.border,
+      C.accent,
+    ],
+  });
+
+  const handleFocus = () =>
+    Animated.timing(focusAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  const handleBlur = () =>
+    Animated.timing(focusAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+
+  const iconColor =
+    status === "success" ? C.success : status === "error" ? C.error : C.white40;
+  const iconName =
+    status === "success"
+      ? "checkmark-circle"
+      : status === "error"
+        ? "close-circle"
+        : "lock-closed-outline";
+
+  return (
+    <View style={inf.container}>
+      <Text style={inf.label}>{label}</Text>
+      <Animated.View style={[inf.inputWrapper, { borderColor }]}>
+        {/* Left icon */}
+        <View style={inf.leftIcon}>
+          <Ionicons name={iconName as any} size={16} color={iconColor} />
+        </View>
+
+        <TextInput
+          style={inf.input}
+          placeholder={placeholder}
+          placeholderTextColor={C.white40}
+          secureTextEntry={secure}
+          value={value}
+          onChangeText={onChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+
+        {/* Right eye toggle */}
+        <TouchableOpacity
+          onPress={onToggle}
+          style={inf.eyeBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={(showToggle ? "eye" : "eye-off") as any}
+            size={18}
+            color={C.white40}
+          />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {hint && (
+        <Text
+          style={[
+            inf.hint,
+            {
+              color:
+                status === "success"
+                  ? C.success
+                  : status === "error"
+                    ? C.error
+                    : C.white40,
+            },
+          ]}
+        >
+          {hint}
+        </Text>
+      )}
+    </View>
+  );
+};
+
+const inf = StyleSheet.create({
+  container: { marginBottom: 16 },
+  label: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.white60,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.white05,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  leftIcon: { paddingLeft: 14, paddingRight: 4 },
+  input: {
+    flex: 1,
+    paddingVertical: 15,
+    paddingHorizontal: 8,
+    fontSize: 15,
+    color: C.white,
+    fontWeight: "500",
+  },
+  eyeBtn: { padding: 14 },
+  hint: { marginTop: 6, fontSize: 12, fontWeight: "500" },
+});
+
+// ─── Requirement Row ─────────────────────────────────────────────────────────
+const Req = ({ ok, text }: { ok: boolean; text: string }) => (
+  <View
+    style={{
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 6,
+    }}
+  >
+    <Ionicons
+      name={ok ? "checkmark-circle" : "ellipse-outline"}
+      size={15}
+      color={ok ? C.success : C.white40}
+    />
+    <Text
+      style={{
+        fontSize: 13,
+        color: ok ? C.success : C.white40,
+        fontWeight: ok ? "600" : "400",
+      }}
+    >
+      {text}
+    </Text>
+  </View>
+);
+
+// ─── Loading Screen ──────────────────────────────────────────────────────────
+const LoadingScreen = () => {
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: true,
+      }),
+    ).start();
+  }, []);
+
+  return (
+    <LinearGradient colors={[C.bgDeep, C.bgMid, "#0D1B4B"]} style={{ flex: 1 }}>
+      <SafeAreaView
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 20,
+        }}
+      >
+        <StatusBar barStyle="light-content" />
+        <View style={ls.ring}>
+          <ActivityIndicator size={36} color={C.accent} />
+        </View>
+        <Text style={ls.title}>Vérification du lien</Text>
+        <Text style={ls.sub}>Validation de votre token de sécurité...</Text>
+        <View style={ls.pill}>
+          <View style={ls.dot} />
+          <Text style={ls.pillText}>Connexion sécurisée</Text>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
+  );
+};
+
+const ls = StyleSheet.create({
+  ring: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: C.accentDim,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+  },
+  title: { fontSize: 22, fontWeight: "700", color: C.white },
+  sub: { fontSize: 14, color: C.white40, textAlign: "center" },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.successDim,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.successBorder,
+    gap: 6,
+  },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.success },
+  pillText: { fontSize: 12, color: C.success, fontWeight: "600" },
+});
+
+// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const { token } = useLocalSearchParams<{ token: string }>();
@@ -29,510 +393,415 @@ export default function ResetPasswordScreen() {
   const [tokenValid, setTokenValid] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  const headerAnim = useEntrance(0);
+  const formAnim = useEntrance(120);
+  const reqAnim = useEntrance(220);
+
+  // ── Token validation ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (token) {
-      console.log("🚀 ~ ResetPasswordScreen ~ token:", token);
-
-      validateToken(token);
-    } else {
+    if (token) validateToken(token);
+    else {
       setIsValidatingToken(false);
-      Alert.alert("Erreur", "Aucun token fourni", [
-        { text: "OK", onPress: () => router.replace("/home") },
-      ]);
+      router.replace("/home");
     }
   }, [token]);
 
-  // Valider le token
-  const validateToken = async (tokenToValidate: string) => {
+  const validateToken = async (t: string) => {
     try {
-      setIsValidatingToken(true);
-
-      const response = await api.post(
-        `/auth/validate-reset-token`,
-        {
-          token: tokenToValidate,
-        }
-      );
-
-      if (response.data.valid) {
-        setTokenValid(true);
-      } else {
-        setTokenValid(false);
-        Alert.alert(
-          "Token invalide",
-          "Ce lien de réinitialisation est invalide ou a expiré.",
-          [
-            {
-              text: "Demander un nouveau lien",
-              onPress: () =>
-                router.replace("/home/profile/subscription/forgot-password"),
-            },
-            {
-              text: "Annuler",
-              onPress: () => router.replace("/auth/login"),
-              style: "cancel",
-            },
-          ]
-        );
-      }
-    } catch (error: any) {
-      console.error("Erreur validation token:", error);
-      setTokenValid(false);
-
-      const errorMessage =
-        error.response?.data?.message ||
-        "Impossible de valider le token. Veuillez réessayer.";
-
-      Alert.alert("Erreur", errorMessage, [
-        { text: "OK", onPress: () => router.replace("/auth/login") },
-      ]);
+      const res = await api.post("/auth/validate-reset-token", { token: t });
+      setTokenValid(res.data.valid);
+      if (!res.data.valid)
+        router.replace("/home/profile/subscription/forgot-password");
+    } catch {
+      router.replace("/auth/login");
     } finally {
       setIsValidatingToken(false);
     }
   };
 
-  // Validation du mot de passe
-  const validatePassword = () => {
-    if (!password || !confirmPassword) {
-      Alert.alert("Erreur", "Veuillez remplir tous les champs");
-      return false;
-    }
+  // ── Reset ──────────────────────────────────────────────────────────────────
+  const passwordsMatch =
+    password === confirmPassword && confirmPassword.length > 0;
+  const passwordLongEnough = password.length >= 6;
+  const canSubmit = passwordsMatch && passwordLongEnough && !isLoading;
 
-    if (password.length < 6) {
-      Alert.alert(
-        "Erreur",
-        "Le mot de passe doit contenir au moins 6 caractères"
-      );
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert("Erreur", "Les mots de passe ne correspondent pas");
-      return false;
-    }
-
-    return true;
-  };
-
-  // Réinitialiser le mot de passe
   const handleResetPassword = async () => {
-    if (!validatePassword()) return;
-
+    if (!canSubmit) return;
     try {
       setIsLoading(true);
-
-      await api.post(`/auth/reset-password`, {
-        token,
-        password,
-      });
-
-      Alert.alert(
-        "Succès ! 🎉",
-        "Votre mot de passe a été réinitialisé avec succès.",
-        [
-          {
-            text: "Se connecter",
-            onPress: () => router.replace("/auth/login"),
-          },
-        ]
-      );
+      await api.post("/auth/reset-password", { token, password });
+      setSubmitSuccess(true);
+      setTimeout(() => router.replace("/auth/login"), 2000);
     } catch (error: any) {
-      console.error("Erreur reset password:", error.response?.data || error);
-
-      const errorMessage =
-        error.response?.data?.message ||
-        "Une erreur est survenue lors de la réinitialisation";
-
-      Alert.alert("Erreur", errorMessage);
+      const msg = error.response?.data?.message || "Une erreur est survenue";
+      // inline error instead of Alert
+      console.error(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Indicateur de validité du mot de passe
-  const passwordStrength = () => {
-    if (!password) return null;
-    if (password.length < 6) return { color: "#ef4444", text: "Trop court" };
-    if (password.length < 8) return { color: "#f59e0b", text: "Moyen" };
-    return { color: "#10b981", text: "Fort" };
-  };
+  // ── Guards ─────────────────────────────────────────────────────────────────
+  if (isValidatingToken) return <LoadingScreen />;
+  if (!tokenValid) return null;
 
-  // Afficher le loader pendant la validation
-  if (isValidatingToken) {
+  // ── Success State ──────────────────────────────────────────────────────────
+  if (submitSuccess) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#667eea" />
-        <Text style={styles.loadingText}>Validation du lien...</Text>
-      </View>
+      <LinearGradient
+        colors={[C.bgDeep, C.bgMid, "#0D1B4B"]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 20,
+            padding: 24,
+          }}
+        >
+          <StatusBar barStyle="light-content" />
+          <View
+            style={[
+              ls.ring,
+              {
+                width: 100,
+                height: 100,
+                borderRadius: 50,
+                backgroundColor: C.successDim,
+                borderColor: C.successBorder,
+              },
+            ]}
+          >
+            <Ionicons name="checkmark-circle" size={48} color={C.success} />
+          </View>
+          <Text
+            style={{
+              fontSize: 26,
+              fontWeight: "800",
+              color: C.white,
+              textAlign: "center",
+            }}
+          >
+            Mot de passe modifié !
+          </Text>
+          <Text
+            style={{
+              fontSize: 15,
+              color: C.white40,
+              textAlign: "center",
+              lineHeight: 22,
+            }}
+          >
+            Votre mot de passe a été mis à jour.{"\n"}Redirection en cours...
+          </Text>
+          <ActivityIndicator color={C.accent} />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
-  // Si le token n'est pas valide
-  if (!tokenValid) {
-    return null;
-  }
-
-  const strength = passwordStrength();
-
+  // ── Main Render ────────────────────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="lock-closed" size={60} color="#667eea" />
-            </View>
-            <Text style={styles.title}>Nouveau mot de passe</Text>
-            <Text style={styles.subtitle}>
-              Choisissez un mot de passe sécurisé pour votre compte
-            </Text>
-          </View>
+    <LinearGradient colors={[C.bgDeep, C.bgMid, "#0D1B4B"]} style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" />
+      <SafeAreaView style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View style={s.container}>
+            {/* ── Header ────────────────────────────────────────────────── */}
+            <Animated.View style={[s.header, headerAnim]}>
+              {/* Orb décoratif */}
+              <View style={s.orb} />
 
-          {/* Formulaire */}
-          <View style={styles.form}>
-            {/* Nouveau mot de passe */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Nouveau mot de passe</Text>
-              <View style={styles.passwordWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Entrez votre nouveau mot de passe"
-                  placeholderTextColor="#a0aec0"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeButton}
-                >
-                  <Ionicons
-                    name={showPassword ? "eye-off" : "eye"}
-                    size={22}
-                    color="#718096"
-                  />
-                </TouchableOpacity>
-              </View>
-              {strength && (
-                <View style={styles.strengthContainer}>
-                  <View
-                    style={[
-                      styles.strengthBar,
-                      { backgroundColor: strength.color },
-                    ]}
-                  />
-                  <Text
-                    style={[styles.strengthText, { color: strength.color }]}
+              <LinearGradient
+                colors={["rgba(79,142,247,0.18)", "rgba(79,142,247,0.04)"]}
+                style={s.headerCard}
+              >
+                <View style={s.headerIconWrapper}>
+                  <LinearGradient
+                    colors={[C.accent, C.accentDark]}
+                    style={s.headerIconGradient}
                   >
-                    {strength.text}
+                    <Ionicons name="lock-closed" size={26} color={C.white} />
+                  </LinearGradient>
+                </View>
+                <Text style={s.title}>Nouveau mot de passe</Text>
+                <Text style={s.subtitle}>
+                  Choisissez un mot de passe sécurisé pour protéger votre compte
+                </Text>
+                {/* Badge */}
+                <View style={s.secureBadge}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={13}
+                    color={C.success}
+                  />
+                  <Text style={s.secureBadgeText}>
+                    Connexion chiffrée · TLS 1.3
                   </Text>
                 </View>
-              )}
-            </View>
+              </LinearGradient>
+            </Animated.View>
 
-            {/* Confirmer mot de passe */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirmer le mot de passe</Text>
-              <View style={styles.passwordWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Confirmez votre mot de passe"
-                  placeholderTextColor="#a0aec0"
-                  secureTextEntry={!showConfirmPassword}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={styles.eyeButton}
-                >
-                  <Ionicons
-                    name={showConfirmPassword ? "eye-off" : "eye"}
-                    size={22}
-                    color="#718096"
-                  />
-                </TouchableOpacity>
+            {/* ── Form ──────────────────────────────────────────────────── */}
+            <Animated.View style={[s.formCard, formAnim]}>
+              <InputField
+                label="Nouveau mot de passe"
+                value={password}
+                onChange={setPassword}
+                placeholder="Minimum 6 caractères"
+                secure={!showPassword}
+                showToggle={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                status={
+                  password.length === 0
+                    ? "idle"
+                    : password.length < 6
+                      ? "error"
+                      : "success"
+                }
+              />
+              <StrengthBar password={password} />
+
+              <View style={{ marginTop: 4 }} />
+
+              <InputField
+                label="Confirmer le mot de passe"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder="Répétez votre mot de passe"
+                secure={!showConfirmPassword}
+                showToggle={showConfirmPassword}
+                onToggle={() => setShowConfirmPassword((v) => !v)}
+                status={
+                  confirmPassword.length === 0
+                    ? "idle"
+                    : passwordsMatch
+                      ? "success"
+                      : "error"
+                }
+                hint={
+                  confirmPassword.length > 0
+                    ? passwordsMatch
+                      ? "✓ Les mots de passe correspondent"
+                      : "✗ Les mots de passe ne correspondent pas"
+                    : undefined
+                }
+              />
+            </Animated.View>
+
+            {/* ── Requirements ──────────────────────────────────────────── */}
+            <Animated.View style={[s.reqCard, reqAnim]}>
+              <View style={s.reqHeader}>
+                <Ionicons name="shield-outline" size={14} color={C.accent} />
+                <Text style={s.reqTitle}>Exigences de sécurité</Text>
               </View>
-              {confirmPassword && password !== confirmPassword && (
-                <Text style={styles.errorText}>
-                  <Ionicons name="close-circle" size={14} color="#ef4444" /> Les
-                  mots de passe ne correspondent pas
-                </Text>
-              )}
-              {confirmPassword && password === confirmPassword && (
-                <Text style={styles.successText}>
-                  <Ionicons name="checkmark-circle" size={14} color="#10b981" />{" "}
-                  Les mots de passe correspondent
-                </Text>
-              )}
-            </View>
+              <Req ok={passwordLongEnough} text="Au moins 6 caractères" />
+              <Req ok={passwordsMatch} text="Les mots de passe correspondent" />
+            </Animated.View>
 
-            {/* Exigences */}
-            <View style={styles.requirements}>
-              <Text style={styles.requirementsTitle}>
-                <Ionicons name="information-circle" size={16} color="#4a5568" />{" "}
-                Exigences du mot de passe :
-              </Text>
-              <View style={styles.requirementItem}>
+            {/* ── Submit ────────────────────────────────────────────────── */}
+            <Animated.View style={[{ gap: 8 }, reqAnim]}>
+              <TouchableOpacity
+                onPress={handleResetPassword}
+                disabled={!canSubmit}
+                activeOpacity={0.85}
+                style={[s.submitBtn, !canSubmit && s.submitBtnDisabled]}
+              >
+                <LinearGradient
+                  colors={
+                    canSubmit
+                      ? [C.accent, C.accentDark]
+                      : [C.white10, C.white10]
+                  }
+                  style={s.submitBtnGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color={C.white} size={20} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={20}
+                        color={canSubmit ? C.white : C.white40}
+                      />
+                      <Text
+                        style={[
+                          s.submitBtnText,
+                          !canSubmit && { color: C.white40 },
+                        ]}
+                      >
+                        Réinitialiser le mot de passe
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.backBtn}
+                onPress={() => router.replace("/auth/login")}
+                activeOpacity={0.7}
+              >
                 <Ionicons
-                  name={
-                    password.length >= 6
-                      ? "checkmark-circle"
-                      : "ellipse-outline"
-                  }
-                  size={16}
-                  color={password.length >= 6 ? "#10b981" : "#cbd5e0"}
+                  name="arrow-back-outline"
+                  size={15}
+                  color={C.white40}
                 />
-                <Text
-                  style={[
-                    styles.requirementText,
-                    password.length >= 6 && styles.requirementValid,
-                  ]}
-                >
-                  Au moins 6 caractères
-                </Text>
-              </View>
-              <View style={styles.requirementItem}>
-                <Ionicons
-                  name={
-                    password && confirmPassword && password === confirmPassword
-                      ? "checkmark-circle"
-                      : "ellipse-outline"
-                  }
-                  size={16}
-                  color={
-                    password && confirmPassword && password === confirmPassword
-                      ? "#10b981"
-                      : "#cbd5e0"
-                  }
-                />
-                <Text
-                  style={[
-                    styles.requirementText,
-                    password &&
-                      confirmPassword &&
-                      password === confirmPassword &&
-                      styles.requirementValid,
-                  ]}
-                >
-                  Les mots de passe correspondent
-                </Text>
-              </View>
-            </View>
-
-            {/* Bouton de soumission */}
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                isLoading && styles.submitButtonDisabled,
-              ]}
-              onPress={handleResetPassword}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={styles.submitButtonText}>
-                    Réinitialiser le mot de passe
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Retour */}
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.replace("/auth/login")}
-            >
-              <Ionicons name="arrow-back" size={16} color="#667eea" />
-              <Text style={styles.backButtonText}>Retour à la connexion</Text>
-            </TouchableOpacity>
+                <Text style={s.backBtnText}>Retour à la connexion</Text>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+// ─── Styles ──────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f7fafc",
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 16,
+    justifyContent: "center",
+    gap: 12,
   },
-  scrollContent: {
-    flexGrow: 1,
+
+  // ── Header Card ──
+  header: { position: "relative" },
+  orb: {
+    position: "absolute",
+    top: -40,
+    right: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(79,142,247,0.06)",
   },
-  loadingContainer: {
-    flex: 1,
+  headerCard: {
+    borderRadius: 22,
+    padding: 22,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    gap: 8,
+    overflow: "hidden",
+  },
+  headerIconWrapper: { marginBottom: 4 },
+  headerIconGradient: {
+    width: 68,
+    height: 68,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f7fafc",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#4a5568",
-    fontWeight: "500",
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    justifyContent: "center",
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#edf2f7",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1a202c",
-    marginBottom: 8,
+    fontSize: 22,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: 0.2,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: 16,
-    color: "#718096",
+    fontSize: 13,
+    color: C.white40,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
+    paddingHorizontal: 16,
   },
-  form: {
-    width: "100%",
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2d3748",
-    marginBottom: 8,
-  },
-  passwordWrapper: {
-    position: "relative",
-  },
-  input: {
-    backgroundColor: "#fff",
+  secureBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: C.successDim,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
-    padding: 16,
-    paddingRight: 50,
-    fontSize: 16,
-    color: "#1a202c",
+    borderColor: C.successBorder,
+    marginTop: 4,
   },
-  eyeButton: {
-    position: "absolute",
-    right: 16,
-    top: 16,
+  secureBadgeText: { fontSize: 11, color: C.success, fontWeight: "600" },
+
+  // ── Form Card ──
+  formCard: {
+    backgroundColor: C.white05,
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  strengthContainer: {
+
+  // ── Requirements Card ──
+  reqCard: {
+    backgroundColor: C.white05,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    gap: 4,
+  },
+  reqHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    gap: 6,
+    marginBottom: 10,
   },
-  strengthBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    marginRight: 8,
-  },
-  strengthText: {
+  reqTitle: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
+    color: C.white60,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
-  errorText: {
-    marginTop: 6,
-    fontSize: 13,
-    color: "#ef4444",
-  },
-  successText: {
-    marginTop: 6,
-    fontSize: 13,
-    color: "#10b981",
-  },
-  requirements: {
-    backgroundColor: "#edf2f7",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  requirementsTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2d3748",
-    marginBottom: 12,
-  },
-  requirementItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  requirementText: {
-    fontSize: 14,
-    color: "#718096",
-    marginLeft: 8,
-  },
-  requirementValid: {
-    color: "#10b981",
-    fontWeight: "500",
-  },
-  submitButton: {
-    backgroundColor: "#667eea",
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-    shadowColor: "#667eea",
+
+  // ── Submit ──
+  submitBtn: {
+    borderRadius: 15,
+    overflow: "hidden",
+    shadowColor: C.accent,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  backButton: {
+  submitBtnDisabled: { shadowOpacity: 0, elevation: 0 },
+  submitBtnGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 12,
+    paddingVertical: 16,
+    gap: 10,
   },
-  backButtonText: {
-    color: "#667eea",
-    fontSize: 14,
-    fontWeight: "600",
-    marginLeft: 6,
+  submitBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.white,
+    letterSpacing: 0.2,
   },
+
+  // ── Back ──
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+  },
+  backBtnText: { fontSize: 13, color: C.white40, fontWeight: "500" },
 });
