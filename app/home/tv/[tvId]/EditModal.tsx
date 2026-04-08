@@ -115,6 +115,24 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
     }).start();
   }, [visible]);
 
+  // Resynchroniser le formulaire quand les données de la TV changent
+  React.useEffect(() => {
+    if (data) {
+      setFormData({
+        id: data.id || "",
+        name: data.name || "",
+        description: data.description || "",
+        resolution: data.resolution || "HD_1080P",
+        orientation: data.orientation || "LANDSCAPE",
+        volume: data.volume ?? 50,
+        autoPlay: data.autoPlay ?? false,
+        loop: data.loop ?? false,
+        transition: data.transition || "FADE",
+        refreshRate: data.refreshRate ?? 30,
+      });
+    }
+  }, [data]);
+
   const updateField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -126,9 +144,12 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
     }
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
       await api.patch("/televisions/" + formData.id, formData);
-      const updatedData = { ...data, ...formData, updatedAt: new Date().toISOString() };
+      const updatedData = {
+        ...data,
+        ...formData,
+        updatedAt: new Date().toISOString(),
+      };
       onSave(updatedData);
       Alert.alert("Succès", "Télévision mise à jour avec succès");
       onClose();
@@ -145,7 +166,12 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
     return (
       <View style={s.volumeContainer}>
         <View style={s.selectorHeader}>
-          <View style={[s.selectorIconWrap, { backgroundColor: C.cyanDim, borderColor: C.cyanBorder }]}>
+          <View
+            style={[
+              s.selectorIconWrap,
+              { backgroundColor: C.cyanDim, borderColor: C.cyanBorder },
+            ]}
+          >
             <Ionicons name="volume-high-outline" size={16} color={C.cyan} />
           </View>
           <Text style={s.selectorTitle}>Volume : {localVolume}%</Text>
@@ -160,7 +186,9 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
             updateField("volume", v);
           }}
         >
-          <View style={[s.volumeProgress, { width: `${localVolume}%` as any }]} />
+          <View
+            style={[s.volumeProgress, { width: `${localVolume}%` as any }]}
+          />
           <View style={[s.volumeThumb, { left: `${localVolume}%` as any }]} />
         </TouchableOpacity>
       </View>
@@ -195,7 +223,12 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
   }) => (
     <View style={s.selectorContainer}>
       <View style={s.selectorHeader}>
-        <View style={[s.selectorIconWrap, { backgroundColor: iconBg, borderColor: iconBorder }]}>
+        <View
+          style={[
+            s.selectorIconWrap,
+            { backgroundColor: iconBg, borderColor: iconBorder },
+          ]}
+        >
           <Ionicons name={iconName as any} size={16} color={iconColor} />
         </View>
         <Text style={s.selectorTitle}>{title}</Text>
@@ -214,7 +247,12 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
               ]}
               onPress={() => onSelect(opt.value)}
             >
-              <Text style={[s.optionChipText, { color: active ? activeColor : C.white40 }]}>
+              <Text
+                style={[
+                  s.optionChipText,
+                  { color: active ? activeColor : C.white40 },
+                ]}
+              >
                 {opt.label}
               </Text>
             </TouchableOpacity>
@@ -226,14 +264,22 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
 
   const statusColor = data?.status === "ONLINE" ? C.success : C.error;
   const statusDim = data?.status === "ONLINE" ? C.successDim : C.errorDim;
-  const statusBorder = data?.status === "ONLINE" ? C.successBorder : C.errorBorder;
+  const statusBorder =
+    data?.status === "ONLINE" ? C.successBorder : C.errorBorder;
 
   if (!visible) return null;
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="none"
+      onRequestClose={onClose}
+    >
       <BlurView intensity={40} tint="dark" style={s.overlay}>
-        <Animated.View style={[s.sheet, { transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View
+          style={[s.sheet, { transform: [{ translateY: slideAnim }] }]}
+        >
           {/* ── Handle bar ── */}
           <View style={s.handle} />
 
@@ -242,7 +288,11 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
             colors={["rgba(255,255,255,0.09)", "rgba(255,255,255,0.03)"]}
             style={s.modalHeader}
           >
-            <TouchableOpacity style={s.headerBtn} onPress={onClose} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={s.headerBtn}
+              onPress={onClose}
+              activeOpacity={0.7}
+            >
               <Ionicons name="close" size={18} color={C.white60} />
             </TouchableOpacity>
 
@@ -262,13 +312,27 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
             </TouchableOpacity>
           </LinearGradient>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={s.scroll}
+          >
             {/* ── Informations générales ── */}
             <View style={s.section}>
               <View style={s.sectionHeader}>
-                <View style={[s.sectionIconWrap, { backgroundColor: C.accentDim, borderColor: C.accentBorder }]}>
-                  <Ionicons name="information-circle-outline" size={18} color={C.accent} />
+                <View
+                  style={[
+                    s.sectionIconWrap,
+                    {
+                      backgroundColor: C.accentDim,
+                      borderColor: C.accentBorder,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={18}
+                    color={C.accent}
+                  />
                 </View>
                 <Text style={s.sectionTitle}>Informations générales</Text>
               </View>
@@ -304,7 +368,15 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
             {/* ── Paramètres d'affichage ── */}
             <View style={s.section}>
               <View style={s.sectionHeader}>
-                <View style={[s.sectionIconWrap, { backgroundColor: C.successDim, borderColor: C.successBorder }]}>
+                <View
+                  style={[
+                    s.sectionIconWrap,
+                    {
+                      backgroundColor: C.successDim,
+                      borderColor: C.successBorder,
+                    },
+                  ]}
+                >
                   <Ionicons name="tv-outline" size={18} color={C.success} />
                 </View>
                 <Text style={s.sectionTitle}>Paramètres d'affichage</Text>
@@ -352,7 +424,7 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
                 activeBorder={C.purpleBorder}
               />
 
-              <OptionSelector
+              {/* <OptionSelector
                 title="Taux de rafraîchissement"
                 options={refreshRateOptions}
                 value={formData.refreshRate}
@@ -364,31 +436,53 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
                 activeColor={C.warning}
                 activeDim={C.warningDim}
                 activeBorder={C.warningBorder}
-              />
+              /> */}
             </View>
 
             {/* ── Paramètres de lecture ── */}
             <View style={s.section}>
               <View style={s.sectionHeader}>
-                <View style={[s.sectionIconWrap, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}>
-                  <Ionicons name="play-circle-outline" size={18} color={C.purple} />
+                <View
+                  style={[
+                    s.sectionIconWrap,
+                    {
+                      backgroundColor: C.purpleDim,
+                      borderColor: C.purpleBorder,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="play-circle-outline"
+                    size={18}
+                    color={C.purple}
+                  />
                 </View>
                 <Text style={s.sectionTitle}>Paramètres de lecture</Text>
               </View>
 
-              <VolumeSlider />
+              {/* <VolumeSlider /> */}
 
               {/* Auto play */}
               <LinearGradient
                 colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
                 style={s.switchRow}
               >
-                <View style={[s.switchIcon, { backgroundColor: C.accentDim, borderColor: C.accentBorder }]}>
+                <View
+                  style={[
+                    s.switchIcon,
+                    {
+                      backgroundColor: C.accentDim,
+                      borderColor: C.accentBorder,
+                    },
+                  ]}
+                >
                   <Ionicons name="play-outline" size={16} color={C.accent} />
                 </View>
                 <View style={s.switchLabels}>
                   <Text style={s.switchLabel}>Lecture automatique</Text>
-                  <Text style={s.switchDesc}>Démarre automatiquement la lecture</Text>
+                  <Text style={s.switchDesc}>
+                    Démarre automatiquement la lecture
+                  </Text>
                 </View>
                 <Switch
                   value={formData.autoPlay}
@@ -403,12 +497,22 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
                 colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
                 style={s.switchRow}
               >
-                <View style={[s.switchIcon, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}>
+                <View
+                  style={[
+                    s.switchIcon,
+                    {
+                      backgroundColor: C.purpleDim,
+                      borderColor: C.purpleBorder,
+                    },
+                  ]}
+                >
                   <Ionicons name="repeat-outline" size={16} color={C.purple} />
                 </View>
                 <View style={s.switchLabels}>
                   <Text style={s.switchLabel}>Lecture en boucle</Text>
-                  <Text style={s.switchDesc}>Répète la lecture indéfiniment</Text>
+                  <Text style={s.switchDesc}>
+                    Répète la lecture indéfiniment
+                  </Text>
                 </View>
                 <Switch
                   value={formData.loop}
@@ -422,7 +526,15 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
             {/* ── Résumé ── */}
             <View style={s.section}>
               <View style={s.sectionHeader}>
-                <View style={[s.sectionIconWrap, { backgroundColor: C.warningDim, borderColor: C.warningBorder }]}>
+                <View
+                  style={[
+                    s.sectionIconWrap,
+                    {
+                      backgroundColor: C.warningDim,
+                      borderColor: C.warningBorder,
+                    },
+                  ]}
+                >
                   <Ionicons name="eye-outline" size={18} color={C.warning} />
                 </View>
                 <Text style={s.sectionTitle}>Résumé</Text>
@@ -439,13 +551,22 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
                 <View style={s.summaryDivider} />
                 <View style={s.summaryRow}>
                   <Text style={s.summaryLabel}>Code de connexion</Text>
-                  <Text style={s.summaryValue}>{data?.codeConnection ?? "—"}</Text>
+                  <Text style={s.summaryValue}>
+                    {data?.codeConnection ?? "—"}
+                  </Text>
                 </View>
                 <View style={s.summaryDivider} />
                 <View style={s.summaryRow}>
                   <Text style={s.summaryLabel}>Statut actuel</Text>
-                  <View style={[s.statusPill, { backgroundColor: statusDim, borderColor: statusBorder }]}>
-                    <View style={[s.statusDot, { backgroundColor: statusColor }]} />
+                  <View
+                    style={[
+                      s.statusPill,
+                      { backgroundColor: statusDim, borderColor: statusBorder },
+                    ]}
+                  >
+                    <View
+                      style={[s.statusDot, { backgroundColor: statusColor }]}
+                    />
                     <Text style={[s.statusPillText, { color: statusColor }]}>
                       {data?.status}
                     </Text>

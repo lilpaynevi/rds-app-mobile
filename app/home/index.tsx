@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/scripts/AuthContext";
 import api from "@/scripts/fetch.api";
 import { dissociatedUser } from "@/requests/tv.requests";
+import { socket } from "@/scripts/socket.io";
 
 const { width } = Dimensions.get("window");
 
@@ -176,7 +177,8 @@ const TVCard: React.FC<{
   tv: Television;
   onPress: () => void;
   onLongPress: () => void;
-}> = ({ tv, onPress, onLongPress }) => {
+  onPowerToggle: () => void;
+}> = ({ tv, onPress, onLongPress, onPowerToggle }) => {
   const cfg = STATUS_CONFIG[tv.status];
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -268,12 +270,23 @@ const TVCard: React.FC<{
             <View style={s.tvFooter}>
               <Ionicons name="time-outline" size={12} color={C.white40} />
               <Text style={s.lastSeen}>Dernière activité · {timeStr}</Text>
-              <Ionicons
-                name="chevron-forward-outline"
-                size={14}
-                color={C.white20}
-                style={{ marginLeft: "auto" }}
-              />
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); onPowerToggle(); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[
+                  s.powerBtn,
+                  {
+                    backgroundColor: tv.status === "OFFLINE" ? C.successDim : C.errorDim,
+                    borderColor: tv.status === "OFFLINE" ? C.successBorder : C.errorBorder,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="power"
+                  size={14}
+                  color={tv.status === "OFFLINE" ? C.success : C.error}
+                />
+              </TouchableOpacity>
             </View>
           </View>
         </LinearGradient>
@@ -374,7 +387,13 @@ const HomeScreen = () => {
     try {
       setLoading(true);
       const res = await api.get("/televisions/me");
-      setTelevisions(res.data);
+      const tvs: Television[] = res.data;
+      setTelevisions(tvs);
+
+      // Rejoindre la room de chaque TV pour recevoir les mises à jour en temps réel
+      tvs.forEach((tv) => {
+        socket.emit("join-room", { roomName: tv.id });
+      });
     } catch {
       Alert.alert("Erreur", "Impossible de charger les données");
     } finally {
@@ -388,6 +407,22 @@ const HomeScreen = () => {
     loadData();
     getSubscription();
   };
+
+  // ── Socket : mise à jour du statut en temps réel ──
+  useEffect(() => {
+    const handleStatusUpdate = (data: { tvId: string; status: Television["status"] }) => {
+      setTelevisions((prev) =>
+        prev.map((tv) =>
+          tv.id === data.tvId ? { ...tv, status: data.status } : tv,
+        ),
+      );
+    };
+
+    socket.on("tv-status-update", handleStatusUpdate);
+    return () => {
+      socket.off("tv-status-update", handleStatusUpdate);
+    };
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -444,6 +479,22 @@ const HomeScreen = () => {
     } catch (e: any) {
       Alert.alert("Erreur", e.message);
     }
+  };
+
+  const handlePowerToggle = (tv: Television) => {
+    const action = tv.status === "OFFLINE" ? "ON" : "OFF";
+    const label = action === "ON" ? "allumer" : "éteindre";
+    Alert.alert(
+      `${action === "ON" ? "Allumer" : "Éteindre"} la TV`,
+      `Voulez-vous ${label} "${tv.name}" ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: action === "ON" ? "Allumer" : "Éteindre",
+          onPress: () => socket.emit("tv-power", { tvId: tv.id, action }),
+        },
+      ],
+    );
   };
 
   const addTV = () => {
@@ -614,6 +665,7 @@ const HomeScreen = () => {
                       tv={tv}
                       onPress={() => handleTVPress(tv)}
                       onLongPress={() => handleTVLongPress(tv)}
+                      onPowerToggle={() => handlePowerToggle(tv)}
                     />
                   ))}
                 </View>
@@ -802,6 +854,15 @@ const s = StyleSheet.create({
   playlistText: { flex: 1, fontSize: 13, color: C.white60 },
   tvFooter: { flexDirection: "row", alignItems: "center", gap: 6 },
   lastSeen: { fontSize: 12, color: C.white40 },
+  powerBtn: {
+    marginLeft: "auto" as any,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+  },
 
   // States
   stateBox: { alignItems: "center", paddingVertical: 50, gap: 14 },

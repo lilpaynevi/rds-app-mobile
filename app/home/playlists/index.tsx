@@ -390,6 +390,7 @@ export default function PlaylistDetailScreen() {
   );
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<"grouped" | "list">("grouped");
 
   const headerY = useRef(new Animated.Value(-20)).current;
   const headerO = useRef(new Animated.Value(0)).current;
@@ -480,6 +481,7 @@ export default function PlaylistDetailScreen() {
     ]);
   };
 
+  const allPlaylists = Object.values(playlistsByTv).flatMap((g) => g.playlists);
   const totalTvs = Object.keys(playlistsByTv).length;
   const totalActive = Object.values(playlistsByTv).filter(
     (tv) => tv.activePlaylist,
@@ -518,7 +520,7 @@ export default function PlaylistDetailScreen() {
       <Animated.View
         style={[
           s.header,
-          { opacity: headerO, transform: [{ translateY: headerY }] },
+          // { opacity: headerO, transform: [{ translateY: headerY }] },
         ]}
       >
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
@@ -534,19 +536,37 @@ export default function PlaylistDetailScreen() {
           )}
         </View>
 
-        <TouchableOpacity
-          onPress={() => router.push("/home/playlists/add")}
-          style={s.addBtn}
-        >
-          <LinearGradient
-            colors={[C.accent, C.cyan]}
-            style={s.addBtnGrad}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {/* Toggle vue */}
+          <View style={s.viewToggle}>
+            <TouchableOpacity
+              style={[s.viewToggleBtn, viewMode === "grouped" && s.viewToggleActive]}
+              onPress={() => setViewMode("grouped")}
+            >
+              <Ionicons name="layers-outline" size={16} color={viewMode === "grouped" ? C.accent : C.white40} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.viewToggleBtn, viewMode === "list" && s.viewToggleActive]}
+              onPress={() => setViewMode("list")}
+            >
+              <Ionicons name="list-outline" size={16} color={viewMode === "list" ? C.accent : C.white40} />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => router.push("/home/playlists/add")}
+            style={s.addBtn}
           >
-            <Ionicons name="add" size={20} color={C.bgDeep} />
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={[C.accent, C.cyan]}
+              style={s.addBtnGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="add" size={20} color={C.bgDeep} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {/* ── STATS BAR ── */}
@@ -614,22 +634,73 @@ export default function PlaylistDetailScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
-          {Object.entries(playlistsByTv)
-            .sort(
-              ([, a], [, b]) =>
-                (b.activePlaylist ? 1 : 0) - (a.activePlaylist ? 1 : 0),
-            )
-            .map(([tvId, tvData]) => (
-              <TvSection
-                key={tvId}
-                tvId={tvId}
-                tvData={tvData}
-                onPlaylistPress={(p) =>
-                  router.navigate(`/home/playlists/view/${p.id}`)
-                }
-                onPlaylistDelete={handleDelete}
-              />
-            ))}
+          {viewMode === "grouped"
+            ? Object.entries(playlistsByTv)
+                .sort(
+                  ([, a], [, b]) =>
+                    (b.activePlaylist ? 1 : 0) - (a.activePlaylist ? 1 : 0),
+                )
+                .map(([tvId, tvData]) => (
+                  <TvSection
+                    key={tvId}
+                    tvId={tvId}
+                    tvData={tvData}
+                    onPlaylistPress={(p) =>
+                      router.navigate(`/home/playlists/view/${p.id}`)
+                    }
+                    onPlaylistDelete={handleDelete}
+                  />
+                ))
+            : allPlaylists.map((p) => {
+                const st = STATUS[p.status] ?? STATUS.inactive;
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => router.navigate(`/home/playlists/view/${p.id}`)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={s.listRow}>
+                      {/* Accent gauche */}
+                      <View style={[s.listAccent, { backgroundColor: st.color }]} />
+
+                      {/* Icône statut */}
+                      <View style={[s.listIcon, { backgroundColor: st.dim, borderColor: st.border }]}>
+                        <Ionicons
+                          name={p.status === "active" ? "play-circle" : "list"}
+                          size={16}
+                          color={st.color}
+                        />
+                      </View>
+
+                      {/* Infos */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.listTitle} numberOfLines={1}>{p.title}</Text>
+                        <View style={s.listMeta}>
+                          <Ionicons name="tv-outline" size={11} color={C.white40} />
+                          <Text style={s.listMetaText}>{p.televisionName}</Text>
+                          <View style={[s.listDot, { backgroundColor: C.border }]} />
+                          <Ionicons name="film-outline" size={11} color={C.white40} />
+                          <Text style={s.listMetaText}>{p.mediaCount} média{p.mediaCount > 1 ? "s" : ""}</Text>
+                        </View>
+                      </View>
+
+                      {/* Badge statut */}
+                      <View style={[s.listBadge, { backgroundColor: st.dim, borderColor: st.border }]}>
+                        <Text style={[s.listBadgeText, { color: st.color }]}>{st.label}</Text>
+                      </View>
+
+                      {/* Supprimer */}
+                      <TouchableOpacity
+                        onPress={() => handleDelete(p.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={s.listDeleteBtn}
+                      >
+                        <Ionicons name="trash-outline" size={15} color={C.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
         </ScrollView>
       )}
 
@@ -686,6 +757,25 @@ const s = StyleSheet.create({
   headerSub: { fontSize: 12, color: C.white40, marginTop: 2 },
   addBtn: { width: 38, height: 38, borderRadius: 12, overflow: "hidden" },
   addBtnGrad: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  // View toggle
+  viewToggle: {
+    flexDirection: "row",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    overflow: "hidden",
+    backgroundColor: C.white05,
+  },
+  viewToggleBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  viewToggleActive: {
+    backgroundColor: C.accentDim,
+  },
 
   // Stats bar
   statsBar: {
@@ -965,4 +1055,61 @@ const s = StyleSheet.create({
     overflow: "hidden",
   },
   fabGrad: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  // List view
+  listRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.bgCard,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 8,
+    overflow: "hidden",
+    gap: 10,
+    paddingVertical: 10,
+    paddingRight: 12,
+  },
+  listAccent: {
+    width: 3,
+    alignSelf: "stretch",
+  },
+  listIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  listTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.white80,
+  },
+  listMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 3,
+  },
+  listMetaText: { fontSize: 11, color: C.white40 },
+  listDot: { width: 3, height: 3, borderRadius: 2 },
+  listBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  listBadgeText: { fontSize: 10, fontWeight: "700" },
+  listDeleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: C.errorDim,
+    borderWidth: 1,
+    borderColor: C.errorBorder,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 });

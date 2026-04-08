@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import EditTvModal from "./EditModal";
 import { dissociatedUser } from "@/requests/tv.requests";
+import { socket } from "@/scripts/socket.io";
 
 // ─── Palette (same as HomeScreen) ────────────────────────────────────────────
 const C = {
@@ -66,6 +67,26 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
 
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [currentData, setCurrentData] = useState(data);
+  const [tvStatus, setTvStatus] = useState<string>(data?.status ?? "OFFLINE");
+
+  const handlePowerToggle = () => {
+    const isOffline = tvStatus === "OFFLINE";
+    const action = isOffline ? "ON" : "OFF";
+    Alert.alert(
+      isOffline ? "Allumer la TV" : "Éteindre la TV",
+      `Voulez-vous ${isOffline ? "allumer" : "éteindre"} "${currentData?.name}" ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: isOffline ? "Allumer" : "Éteindre",
+          onPress: () => {
+            socket.emit("tv-power", { tvId: currentData?.id, action });
+            setTvStatus(isOffline ? "ONLINE" : "OFFLINE");
+          },
+        },
+      ],
+    );
+  };
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString("fr-FR", {
@@ -96,7 +117,7 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
     console.log("Données mises à jour:", updatedData);
   };
 
-  const cfg = STATUS_CONFIG[data?.status] ?? STATUS_CONFIG["OFFLINE"];
+  const cfg = STATUS_CONFIG[tvStatus] ?? STATUS_CONFIG["OFFLINE"];
 
   return (
     <LinearGradient colors={[C.bgDeep, C.bgMid, "#0D1B4B"]} style={{ flex: 1 }}>
@@ -125,13 +146,33 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
               </View>
             </View>
 
-            <TouchableOpacity
-              style={s.editButton}
-              onPress={() => setIsEditModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="create-outline" size={18} color={C.accent} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                style={[
+                  s.editButton,
+                  {
+                    backgroundColor: tvStatus === "OFFLINE" ? C.successDim : C.errorDim,
+                    borderColor: tvStatus === "OFFLINE" ? C.successBorder : C.errorBorder,
+                  },
+                ]}
+                onPress={handlePowerToggle}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="power"
+                  size={18}
+                  color={tvStatus === "OFFLINE" ? C.success : C.error}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.editButton}
+                onPress={() => setIsEditModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="create-outline" size={18} color={C.accent} />
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
@@ -399,6 +440,29 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
 
           {/* ── Actions ── */}
           <View style={[s.section, { flexDirection: "row", gap: 12 }]}>
+            {/* ON / OFF */}
+            <TouchableOpacity
+              style={{ flex: 1, borderRadius: 14, overflow: "hidden" }}
+              activeOpacity={0.8}
+              onPress={handlePowerToggle}
+            >
+              <LinearGradient
+                colors={tvStatus === "OFFLINE"
+                  ? [C.successDim, "rgba(0,230,118,0.06)"]
+                  : [C.errorDim, "rgba(255,82,82,0.06)"]}
+                style={[s.actionBtn, { borderColor: tvStatus === "OFFLINE" ? C.successBorder : C.errorBorder }]}
+              >
+                <Ionicons
+                  name="power"
+                  size={18}
+                  color={tvStatus === "OFFLINE" ? C.success : C.error}
+                />
+                <Text style={[s.actionBtnText, { color: tvStatus === "OFFLINE" ? C.success : C.error }]}>
+                  {tvStatus === "OFFLINE" ? "Allumer" : "Éteindre"}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
             {/* Supprimer */}
             <TouchableOpacity
               style={{ flex: 1, borderRadius: 14, overflow: "hidden" }}
