@@ -271,13 +271,18 @@ const TVCard: React.FC<{
               <Ionicons name="time-outline" size={12} color={C.white40} />
               <Text style={s.lastSeen}>Dernière activité · {timeStr}</Text>
               <TouchableOpacity
-                onPress={(e) => { e.stopPropagation?.(); onPowerToggle(); }}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  onPowerToggle();
+                }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={[
                   s.powerBtn,
                   {
-                    backgroundColor: tv.status === "OFFLINE" ? C.successDim : C.errorDim,
-                    borderColor: tv.status === "OFFLINE" ? C.successBorder : C.errorBorder,
+                    backgroundColor:
+                      tv.status === "OFFLINE" ? C.successDim : C.errorDim,
+                    borderColor:
+                      tv.status === "OFFLINE" ? C.successBorder : C.errorBorder,
                   },
                 ]}
               >
@@ -410,7 +415,10 @@ const HomeScreen = () => {
 
   // ── Socket : mise à jour du statut en temps réel ──
   useEffect(() => {
-    const handleStatusUpdate = (data: { tvId: string; status: Television["status"] }) => {
+    const handleStatusUpdate = (data: {
+      tvId: string;
+      status: Television["status"];
+    }) => {
       setTelevisions((prev) =>
         prev.map((tv) =>
           tv.id === data.tvId ? { ...tv, status: data.status } : tv,
@@ -432,12 +440,12 @@ const HomeScreen = () => {
 
   // ── TV handlers ──
   const handleTVPress = (tv: Television) => {
-    if (tv.status === "OFFLINE") {
-      Alert.alert("TV hors ligne", `${tv.name} n'est pas connectée.`, [
-        { text: "OK" },
-      ]);
-      return;
-    }
+    // if (tv.status === "OFFLINE") {
+    //   Alert.alert("TV hors ligne", `${tv.name} n'est pas connectée.`, [
+    //     { text: "OK" },
+    //   ]);
+    //   return;
+    // }
     router.push(
       `/home/tv/${tv.id}?item=${encodeURIComponent(JSON.stringify(tv))}`,
     );

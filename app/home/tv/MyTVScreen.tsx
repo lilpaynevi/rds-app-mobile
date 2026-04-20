@@ -676,7 +676,50 @@ export default function MyTelevisionsScreen() {
             </View>
           </View>
 
-          <View style={{ width: 36 }} />
+          <TouchableOpacity
+            style={[s.powerAllBtn, onlineCount === 0 && s.powerAllBtnOn]}
+            activeOpacity={0.8}
+            onPress={() => {
+              const allOff = onlineCount === 0;
+              const targets = televisions.filter((t) =>
+                allOff
+                  ? t.status === "OFFLINE"
+                  : t.status === "ONLINE" || t.status === "PLAYING",
+              );
+              const action = allOff ? "ON" : "OFF";
+              const label = allOff ? "allumer" : "éteindre";
+              const labelBtn = allOff ? "Allumer tout" : "Éteindre tout";
+              Alert.alert(
+                allOff ? "Allumer toutes les TVs" : "Éteindre toutes les TVs",
+                `Voulez-vous ${label} les ${targets.length} télévision${targets.length > 1 ? "s" : ""} ?`,
+                [
+                  { text: "Annuler", style: "cancel" },
+                  {
+                    text: labelBtn,
+                    style: allOff ? "default" : "destructive",
+                    onPress: () => {
+                      targets.forEach((tv) =>
+                        socket.emit("tv-power", { tvId: tv.id, action }),
+                      );
+                      setTelevisions((prev) =>
+                        prev.map((tv) =>
+                          targets.find((t) => t.id === tv.id)
+                            ? { ...tv, status: allOff ? "ONLINE" : "OFFLINE" }
+                            : tv,
+                        ),
+                      );
+                    },
+                  },
+                ],
+              );
+            }}
+          >
+            <Ionicons
+              name="power"
+              size={18}
+              color={onlineCount === 0 ? C.success : C.error}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* ── Hint swipe ── */}
@@ -832,6 +875,26 @@ const s = StyleSheet.create({
     paddingBottom: 10,
   },
   swipeHintText: { fontSize: 12, color: C.white40 },
+
+  // ── Power all ──
+  powerAllBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: C.errorDim,
+    borderWidth: 1,
+    borderColor: C.errorBorder,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  powerAllBtnOff: {
+    backgroundColor: C.white05,
+    borderColor: C.border,
+  },
+  powerAllBtnOn: {
+    backgroundColor: C.successDim,
+    borderColor: C.successBorder,
+  },
 
   // ── List ──
   listContent: { paddingHorizontal: 18, paddingBottom: 40 },

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import api from "@/scripts/fetch.api";
+import { socket } from "@/scripts/socket.io";
 
 const { height } = Dimensions.get("window");
 
@@ -78,6 +79,29 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [schedules, setSchedules] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (visible && data?.id) {
+      api.get(`/schedules/tv/${data.id}`)
+        .then((res) => setSchedules(res.data))
+        .catch(() => setSchedules([]));
+    }
+  }, [visible, data?.id]);
+
+  const toggleSchedule = async (scheduleId: string, current: boolean) => {
+    try {
+      await api.patch(`/schedules/${scheduleId}`, { isActive: !current });
+      setSchedules((prev) =>
+        prev.map((s) => s.id === scheduleId ? { ...s, isActive: !current } : s)
+      );
+      socket.emit("tv-schedules-updated", { tvId: data?.id });
+    } catch {
+      Alert.alert("Erreur", "Impossible de modifier la programmation");
+    }
+  };
+
+  const DAY_LABELS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   const resolutionOptions = [
@@ -521,6 +545,57 @@ const EditTvModal: React.FC<EditTvModalProps> = ({
                   thumbColor={formData.loop ? C.purple : C.white40}
                 />
               </LinearGradient>
+            </View>
+
+            {/* ── Programmation ── */}
+            <View style={s.section}>
+              <View style={s.sectionHeader}>
+                <View style={[s.sectionIconWrap, { backgroundColor: C.warningDim, borderColor: C.warningBorder }]}>
+                  <Ionicons name="calendar-outline" size={18} color={C.warning} />
+                </View>
+                <Text style={s.sectionTitle}>Programmation</Text>
+              </View>
+
+              {schedules.length === 0 ? (
+                <LinearGradient
+                  colors={["rgba(255,255,255,0.04)", "rgba(255,255,255,0.01)"]}
+                  style={[s.switchRow, { justifyContent: "center" }]}
+                >
+                  <Text style={{ color: C.white40, fontSize: 13 }}>
+                    Aucune programmation assignée
+                  </Text>
+                </LinearGradient>
+              ) : (
+                schedules.map((sch) => (
+                  <LinearGradient
+                    key={sch.id}
+                    colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
+                    style={[s.switchRow, { flexDirection: "column", alignItems: "flex-start", gap: 8 }]}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", width: "100%" }}>
+                      <View style={[s.switchIcon, { backgroundColor: C.warningDim, borderColor: C.warningBorder }]}>
+                        <Ionicons name="time-outline" size={16} color={C.warning} />
+                      </View>
+                      <View style={[s.switchLabels, { marginLeft: 12 }]}>
+                        <Text style={s.switchLabel} numberOfLines={1}>
+                          {sch.playlist?.name ?? sch.title}
+                        </Text>
+                        <Text style={s.switchDesc}>
+                          {sch.startTime} → {sch.endTime}
+                          {"  "}
+                          {(sch.daysOfWeek ?? []).map((d: number) => DAY_LABELS[d]).join(", ")}
+                        </Text>
+                      </View>
+                      <Switch
+                        value={sch.isActive}
+                        onValueChange={() => toggleSchedule(sch.id, sch.isActive)}
+                        trackColor={{ false: C.white10, true: C.warningDim }}
+                        thumbColor={sch.isActive ? C.warning : C.white40}
+                      />
+                    </View>
+                  </LinearGradient>
+                ))
+              )}
             </View>
 
             {/* ── Résumé ── */}

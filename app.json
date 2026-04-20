@@ -54,6 +54,19 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "androidGradlePluginVersion": "8.6.0",
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0",
+            "ndkVersion": "27.1.12297006",
+            "useLegacyPackaging": false
+          }
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",

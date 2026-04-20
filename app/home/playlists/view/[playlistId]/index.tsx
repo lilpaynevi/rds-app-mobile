@@ -523,9 +523,10 @@ const PlaylistContent = ({ onBack }) => {
 
   // Nouveaux states pour les nouvelles fonctionnalités
   const [reorderModalVisible, setReorderModalVisible] = useState(false);
-  const [tvSelectionVisible, setTvSelectionVisible] = useState(false);
+  const [tvAssignModalVisible, setTvAssignModalVisible] = useState(false);
   const [availableTvs, setAvailableTvs] = useState([]);
-  const [selectedTv, setSelectedTv] = useState(null);
+  const [assignedTvs, setAssignedTvs] = useState<{ id: string; name: string }[]>([]);
+  const [selectedTv, setSelectedTv] = useState<{ id: string; name?: string } | null>(null);
 
   // Dans les states existants, ajoutez :
   const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
@@ -555,12 +556,7 @@ const PlaylistContent = ({ onBack }) => {
         ),
       );
 
-      if (selectedTv != null) {
-        socket.emit("tv-change-playlist", {
-          tvId: selectedTv.id,
-          newPlaylistId: playlistId,
-        });
-      }
+      notifyAllTvs("tv-change-playlist", (tvId) => ({ tvId, newPlaylistId: playlistId }));
 
       Alert.alert("Succès", "Durée mise à jour");
     } catch (error) {
@@ -630,6 +626,7 @@ const PlaylistContent = ({ onBack }) => {
         const res = await api.patch(`/schedules/${scheduleId}`, payload);
 
         if (res.status === 200) {
+          notifyAllTvs("tv-schedules-updated", (tvId) => ({ tvId }));
           Alert.alert("Succès", "Programmation modifiée");
           setScheduleModalVisible(false);
           setEditingSchedule(null);
@@ -641,6 +638,7 @@ const PlaylistContent = ({ onBack }) => {
 
         const payload = {
           playlistId: playlistId, // ✅ ID de la playlist actuelle
+          televisionId: selectedTv?.id,
           daysOfWeek: scheduleData.daysOfWeek,
           startTime: scheduleData.startTime,
           endTime: scheduleData.endTime,
@@ -659,6 +657,7 @@ const PlaylistContent = ({ onBack }) => {
         const res = await api.post("/schedules", payload);
 
         if (res.status === 200 || res.status === 201) {
+          notifyAllTvs("tv-schedules-updated", (tvId) => ({ tvId }));
           Alert.alert("Succès", "Programmation créée");
           setScheduleModalVisible(false);
           setEditingSchedule(null);
@@ -687,6 +686,7 @@ const PlaylistContent = ({ onBack }) => {
             try {
               setLoading(true);
               await api.delete(`/schedules/${scheduleId}`);
+              notifyAllTvs("tv-schedules-updated", (tvId) => ({ tvId }));
               setScheduleModalVisible(false);
               setEditingSchedule(null);
             } catch (error) {
@@ -704,6 +704,12 @@ const PlaylistContent = ({ onBack }) => {
   const openScheduleModal = (schedule = null) => {
     setEditingSchedule(schedule);
     setScheduleModalVisible(true);
+  };
+
+  // Émet un event socket vers toutes les TVs assignées
+  const notifyAllTvs = (event: string, payloadFn: (tvId: string) => object) => {
+    const tvList = assignedTvs.length > 0 ? assignedTvs : selectedTv ? [selectedTv] : [];
+    tvList.forEach((tv) => socket.emit(event, payloadFn(tv.id)));
   };
 
   useEffect(() => {
@@ -744,6 +750,7 @@ const PlaylistContent = ({ onBack }) => {
       setIsActive(playlistData.isActive);
       setSchedules(playlistData.schedules);
       setSelectedTv(playlistData.televisions[0]?.television || null);
+      setAssignedTvs(playlistData.televisions?.map((t: any) => t.television).filter(Boolean) || []);
 
       const extractedMedia =
         playlistData.items?.map((item, index) => ({
@@ -844,12 +851,7 @@ const PlaylistContent = ({ onBack }) => {
       if (selectedMedia?.id === mediaId) {
         setModalVisible(false);
       }
-      if (selectedTv) {
-        socket.emit("tv-change-playlist", {
-          tvId: selectedTv.id,
-          newPlaylistId: playlist.id,
-        });
-      }
+      notifyAllTvs("tv-change-playlist", (tvId) => ({ tvId, newPlaylistId: playlistId }));
     } catch (error) {
       console.error("Erreur suppression média:", error);
       Alert.alert("Erreur", "Impossible de supprimer le média");
@@ -877,11 +879,8 @@ const PlaylistContent = ({ onBack }) => {
       if (request.status === 200) {
         setMedia(reorderedMedia);
 
-        if (isActive && selectedTv) {
-          socket.emit("tv-change-playlist", {
-            tvId: selectedTv.id,
-            newPlaylistId: playlistId,
-          });
+        if (isActive) {
+          notifyAllTvs("tv-change-playlist", (tvId) => ({ tvId, newPlaylistId: playlistId }));
         }
       }
     } catch (error) {
@@ -893,35 +892,45 @@ const PlaylistContent = ({ onBack }) => {
     }
   };
 
-  // Nouvelle fonction pour changer de TV
-  const handleTvSelection = async (tv) => {
+
+  // Gestion multi-assignation TVs
+  const handleTvAssignConfirm = async (selectedIds: string[]) => {
+    const prevIds = new Set(assignedTvs.map((t) => t.id));
+    const nextIds = new Set(selectedIds);
+    const toAdd = selectedIds.filter((id) => !prevIds.has(id));
+    const toRemove = assignedTvs.map((t) => t.id).filter((id) => !nextIds.has(id));
     try {
-      setLoading(true);
-
-      const ppp = await api.patch(`/playlists/${playlistId}/assign-tv`, {
-        televisionId: tv.id,
-        playlistId,
-      });
-      console.log("🚀 ~ handleTvSelection ~ ppp:", ppp.data);
-
-      setSelectedTv(tv);
-      setTvSelectionVisible(false);
-
-      if (isActive) {
-        socket.emit("tv-change-playlist", {
-          tvId: tv.id,
-          newPlaylistId: playlistId,
-        });
-      }
-
-      // Recharger pour avoir les données à jour
+      await Promise.all([
+        ...toAdd.map((tvId) =>
+          api.patch(`/playlists/${playlistId}/assign-tv`, { televisionId: tvId, playlistId })
+        ),
+        ...toRemove.map((tvId) =>
+          api.delete(`/playlists/${playlistId}/unassign-tv/${tvId}`)
+        ),
+      ]);
       loadPlaylistContent();
     } catch (error) {
-      console.error("Erreur assignation TV:", error);
-      Alert.alert("Erreur", "Impossible d'assigner la playlist à cette TV");
-    } finally {
-      setLoading(false);
+      Alert.alert("Erreur", "Impossible de mettre à jour les TVs assignées");
     }
+  };
+
+  const handleUnassignTv = (tvId: string) => {
+    Alert.alert("Désassigner", "Retirer cette TV de la playlist ?", [
+      { text: "Annuler", style: "cancel" },
+      {
+        text: "Retirer",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await api.delete(`/playlists/${playlistId}/unassign-tv/${tvId}`);
+            setAssignedTvs((prev) => prev.filter((t) => t.id !== tvId));
+            if (selectedTv?.id === tvId) setSelectedTv(null);
+          } catch {
+            Alert.alert("Erreur", "Impossible de désassigner la TV");
+          }
+        },
+      },
+    ]);
   };
 
   const pickMedia = async () => {
@@ -985,11 +994,8 @@ const PlaylistContent = ({ onBack }) => {
         setAddMediaModalVisible(false);
         setSelectedFiles([]);
 
-        if (isActive && selectedTv) {
-          socket.emit("tv-change-playlist", {
-            tvId: selectedTv.id,
-            newPlaylistId: playlist.id,
-          });
+        if (isActive) {
+          notifyAllTvs("tv-change-playlist", (tvId) => ({ tvId, newPlaylistId: playlistId }));
         }
 
         loadPlaylistContent();
@@ -1005,24 +1011,27 @@ const PlaylistContent = ({ onBack }) => {
   };
 
   const togglePlaylistStatus = async () => {
-    if (!selectedTv) {
-      Alert.alert("Erreur", "Sélectionnez d'abord une TV pour cette playlist");
+    if (assignedTvs.length === 0) {
+      Alert.alert("Erreur", "Assignez d'abord une TV à cette playlist");
       return;
     }
 
     try {
       const newStatus = !isActive;
+      const contextTv = selectedTv ?? assignedTvs[0];
+
       await api.patch(
-        `/playlists/${playlistId}/televisionId/${selectedTv.id}/status`,
-        {
-          isActive: newStatus,
-        },
+        `/playlists/${playlistId}/televisionId/${contextTv.id}/status`,
+        { isActive: newStatus },
       );
       setIsActive(newStatus);
 
-      socket.emit("tv-change-playlist", {
-        tvId: selectedTv.id,
-        newPlaylistId: playlistId,
+      // Notifier toutes les TVs assignées
+      assignedTvs.forEach((tv) => {
+        socket.emit("tv-change-playlist", {
+          tvId: tv.id,
+          newPlaylistId: playlistId,
+        });
       });
     } catch (error) {
       console.error("Erreur mise à jour statut:", error);
@@ -1206,12 +1215,16 @@ const PlaylistContent = ({ onBack }) => {
               {playlist?.name || "Ma Playlist"}
             </Text>
             <TouchableOpacity
-              onPress={() => setTvSelectionVisible(true)}
+              onPress={() => setTvAssignModalVisible(true)}
               style={styles.tvSelector}
             >
               <Text style={styles.headerSubtitle}>
                 {media.length} élément{media.length !== 1 ? "s" : ""} •{" "}
-                {selectedTv?.name || "Aucune TV"}
+                {assignedTvs.length === 0
+                  ? "Aucune TV"
+                  : assignedTvs.length === 1
+                  ? assignedTvs[0].name
+                  : `${assignedTvs.length} TVs`}
               </Text>
               <Ionicons name="chevron-down" size={16} color="#00E5FF" />
             </TouchableOpacity>
@@ -1268,8 +1281,27 @@ const PlaylistContent = ({ onBack }) => {
             onValueChange={togglePlaylistStatus}
             trackColor={{ false: "#767577", true: "#00E5FF" }}
             thumbColor={isActive ? "#fff" : "#f4f3f4"}
-            disabled={!selectedTv}
+            disabled={assignedTvs.length === 0}
           />
+        </View>
+
+        {/* TVs assignées */}
+        <View style={styles.tvChipsRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {assignedTvs.map((tv) => (
+              <View key={tv.id} style={styles.tvChip}>
+                <Ionicons name="tv" size={13} color="#00E5FF" />
+                <Text style={styles.tvChipText}>{tv.name}</Text>
+                <TouchableOpacity onPress={() => handleUnassignTv(tv.id)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close-circle" size={15} color="rgba(255,255,255,0.5)" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity style={styles.tvChipAdd} onPress={() => setTvAssignModalVisible(true)}>
+              <Ionicons name="add" size={15} color="#00E5FF" />
+              <Text style={styles.tvChipAddText}>Gérer les TVs</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </LinearGradient>
 
@@ -1309,13 +1341,14 @@ const PlaylistContent = ({ onBack }) => {
         />
       )}
 
-      {/* Modal de sélection TV */}
+      {/* Modal gestion TVs assignées (multi-select) */}
       <TVSelectionModal
-        visible={tvSelectionVisible}
-        onClose={() => setTvSelectionVisible(false)}
-        onSelect={handleTvSelection}
-        currentTv={selectedTv}
+        visible={tvAssignModalVisible}
+        onClose={() => setTvAssignModalVisible(false)}
         tvs={availableTvs}
+        multiSelect
+        assignedTvIds={assignedTvs.map((t) => t.id)}
+        onConfirm={handleTvAssignConfirm}
       />
 
       {/* Modal de réorganisation */}
@@ -2455,6 +2488,45 @@ const styles = StyleSheet.create({
   // ── Misc ─────────────────────────────────────────────────────────────────
   bottomPadding: {
     height: 40,
+  },
+
+  // TV chips
+  tvChipsRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    paddingTop: 4,
+  },
+  tvChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(0,229,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0,229,255,0.30)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  tvChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  tvChipAdd: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  tvChipAddText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#00E5FF",
   },
 });
 
