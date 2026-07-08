@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -250,6 +250,80 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
   const [allPlaylists, setAllPlaylists] = useState<any[]>([]);
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
 
+  // Position de chaque playlist dans la file d'attente de cette TV (clé = playlistId)
+  const [queueMap, setQueueMap] = useState<
+    Record<string, { queueItemId: string; position: number }>
+  >({});
+
+  const loadQueue = async () => {
+    if (!data?.id) return;
+    try {
+      const res = await api.get(`/tv-queue/tv/${data.id}`);
+      const map: Record<string, { queueItemId: string; position: number }> = {};
+      (res.data ?? []).forEach((q: any) => {
+        map[q.playlistId] = { queueItemId: q.id, position: q.position };
+      });
+      setQueueMap(map);
+    } catch {
+      // Silencieux — l'écran reste utilisable sans ordre persisté
+    }
+  };
+
+  useEffect(() => {
+    loadQueue();
+  }, []);
+
+  // Playlists assignées, triées par position dans la file (les non-actives/
+  // pas-encore-en-file restent à la suite, dans leur ordre d'arrivée)
+  const orderedPlaylists = useMemo(() => {
+    const withQueueInfo = assignedPlaylists.map((pl) => ({
+      ...pl,
+      queueItemId: queueMap[pl.playlist.id]?.queueItemId ?? null,
+      queuePosition: queueMap[pl.playlist.id]?.position ?? null,
+    }));
+    return [...withQueueInfo].sort((a, b) => {
+      if (a.queuePosition === null && b.queuePosition === null) return 0;
+      if (a.queuePosition === null) return 1;
+      if (b.queuePosition === null) return -1;
+      return a.queuePosition - b.queuePosition;
+    });
+  }, [assignedPlaylists, queueMap]);
+
+  const queuedCount = orderedPlaylists.filter((pl) => pl.queueItemId).length;
+
+  const persistQueueOrder = async (reordered: typeof orderedPlaylists) => {
+    const items = reordered
+      .filter((pl) => pl.queueItemId)
+      .map((pl, index) => ({ id: pl.queueItemId as string, position: index }));
+
+    if (items.length === 0) return;
+
+    setQueueMap((prev) => {
+      const next = { ...prev };
+      items.forEach((item) => {
+        const pl = reordered.find((p) => p.queueItemId === item.id);
+        if (pl) next[pl.playlist.id] = { queueItemId: item.id, position: item.position };
+      });
+      return next;
+    });
+
+    try {
+      await api.patch(`/tv-queue/reorder`, { televisionId: data.id, items });
+    } catch {
+      Alert.alert("Erreur", "Impossible d'enregistrer le nouvel ordre");
+      loadQueue();
+    }
+  };
+
+  const moveQueueItem = (index: number, direction: "up" | "down") => {
+    const toIndex = direction === "up" ? index - 1 : index + 1;
+    if (toIndex < 0 || toIndex >= queuedCount) return;
+
+    const reordered = [...orderedPlaylists];
+    [reordered[index], reordered[toIndex]] = [reordered[toIndex], reordered[index]];
+    persistQueueOrder(reordered);
+  };
+
   const [powerScheduleEnabled, setPowerScheduleEnabled] = useState(
     !!(data?.powerOnTime || data?.powerOffTime)
   );
@@ -352,7 +426,17 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
         televisionId: data.id,
         playlistId: playlist.id,
       });
-      setAssignedPlaylists((prev) => [...prev, { playlist, priority: 5, assignedAt: new Date().toISOString() }]);
+      // Place aussi la playlist dans la file d'attente de cette TV (à la
+      // suite), sans quoi elle serait assignée mais jamais jouée.
+      await api.patch(
+        `/playlists/${playlist.id}/televisionId/${data.id}/status`,
+        { isActive: true },
+      );
+      setAssignedPlaylists((prev) => [
+        ...prev,
+        { playlist, priority: 5, isActive: true, assignedAt: new Date().toISOString() },
+      ]);
+      loadQueue();
       setPlaylistModalVisible(false);
     } catch {
       Alert.alert("Erreur", "Impossible d'assigner la playlist");
@@ -369,6 +453,11 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
           try {
             await api.delete(`/playlists/${pl.playlist.id}/unassign-tv/${data.id}`);
             setAssignedPlaylists((prev) => prev.filter((p) => p.playlist.id !== pl.playlist.id));
+            setQueueMap((prev) => {
+              const next = { ...prev };
+              delete next[pl.playlist.id];
+              return next;
+            });
           } catch {
             Alert.alert("Erreur", "Impossible de désassigner la playlist");
           }
@@ -547,7 +636,7 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                 </TouchableOpacity>
               ) : (
                 <View style={{ gap: 10 }}>
-                  {assignedPlaylists.map((pl: any) => (
+                  {orderedPlaylists.map((pl: any, index: number) => (
                     <TouchableOpacity
                       key={pl.id ?? pl.playlist.id}
                       onPress={() => router.navigate(`/home/playlists/view/${pl.playlist.id}`)}
@@ -557,7 +646,7 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                         colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
                         style={[s.playlistItem, { borderColor: C.border }]}
                       >
-                        <View style={[s.playlistTopBar, { backgroundColor: pl.playlist.isActive ? C.success : C.error }]} />
+                        <View style={[s.playlistTopBar, { backgroundColor: pl.isActive ? C.success : C.error }]} />
                         <View style={s.playlistBody}>
                           <View style={s.playlistHeaderRow}>
                             <View style={{ flex: 1 }}>
@@ -567,6 +656,11 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                               ) : null}
                             </View>
                             <View style={s.playlistRight}>
+                              {pl.queueItemId ? (
+                                <View style={[s.priorityBadge, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}>
+                                  <Text style={[s.priorityText, { color: C.purple }]}>#{pl.queuePosition + 1}</Text>
+                                </View>
+                              ) : null}
                               <View style={[s.priorityBadge, { backgroundColor: getPriorityColor(pl.priority) + "22", borderColor: getPriorityColor(pl.priority) + "55" }]}>
                                 <Text style={[s.priorityText, { color: getPriorityColor(pl.priority) }]}>P{pl.priority}</Text>
                               </View>
@@ -579,13 +673,31 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                             </View>
                           </View>
                           <View style={s.playlistFooter}>
-                            <View style={[s.statusPill, { backgroundColor: pl.playlist.isActive ? C.successDim : C.errorDim, borderColor: pl.playlist.isActive ? C.successBorder : C.errorBorder }]}>
-                              <View style={[s.statusDot, { backgroundColor: pl.playlist.isActive ? C.success : C.error }]} />
-                              <Text style={[s.statusPillText, { color: pl.playlist.isActive ? C.success : C.error }]}>
-                                {pl.playlist.isActive ? "Active" : "Inactive"}
+                            <View style={[s.statusPill, { backgroundColor: pl.isActive ? C.successDim : C.errorDim, borderColor: pl.isActive ? C.successBorder : C.errorBorder }]}>
+                              <View style={[s.statusDot, { backgroundColor: pl.isActive ? C.success : C.error }]} />
+                              <Text style={[s.statusPillText, { color: pl.isActive ? C.success : C.error }]}>
+                                {pl.isActive ? "Active" : "Inactive"}
                               </Text>
                             </View>
                             <Text style={s.assignedDate}>{formatDate(pl.assignedAt)}</Text>
+                            {pl.queueItemId ? (
+                              <View style={{ flexDirection: "row", gap: 4, marginLeft: 8 }}>
+                                <TouchableOpacity
+                                  onPress={(e) => { e.stopPropagation(); moveQueueItem(index, "up"); }}
+                                  disabled={index === 0}
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                >
+                                  <Ionicons name="chevron-up-circle-outline" size={20} color={index === 0 ? C.white20 : C.purple} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={(e) => { e.stopPropagation(); moveQueueItem(index, "down"); }}
+                                  disabled={index === queuedCount - 1}
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                >
+                                  <Ionicons name="chevron-down-circle-outline" size={20} color={index === queuedCount - 1 ? C.white20 : C.purple} />
+                                </TouchableOpacity>
+                              </View>
+                            ) : null}
                           </View>
                         </View>
                       </LinearGradient>

@@ -375,13 +375,18 @@ export default function AddPlaylistScreen() {
               ...scheduleData,
               isActive,
             };
-            const response = await createPlaylist(data);
-            if (response && selectedTV.status) {
-              socket.emit("playlist_created", {
-                tv_id: selectedTV.id,
-                playlist: response,
-              });
-            }
+
+            await createPlaylist(data).then((response) => {
+              if (response && isActive && selectedTV.status) {
+                setTimeout(() => {
+                  socket.emit("tv-change-playlist", {
+                    tvId: selectedTV.id,
+                    newPlaylistId: response.id,
+                  });
+                }, 2000);
+              }
+            });
+
             Alert.alert("🎉 Succès", "Playlist créée avec succès !");
             router.replace("/home");
           } catch (e) {
@@ -603,7 +608,9 @@ export default function AddPlaylistScreen() {
               </View>
               <View>
                 <Text style={s.statusTitle}>
-                  {isActive ? "Activer immédiatement" : "Garder en brouillon"}
+                  {isActive
+                    ? "Activer immédiatement"
+                    : "Ne pas activer maintenant"}
                 </Text>
                 <Text style={s.statusSub}>
                   {isActive

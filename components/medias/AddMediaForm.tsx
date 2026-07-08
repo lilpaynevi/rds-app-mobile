@@ -34,7 +34,7 @@ export default function AddMediaForm({
   medias: any;
   onSave: (data: any) => void;
 }) {
-  const [selectedMedia, setSelectedMedia] = useState([]);
+  const [selectedMedia, setSelectedMedia] = useState<any[]>([]);
   const [isSelectingMedia, setIsSelectingMedia] = useState(false);
   const [showMediaTypeSelector, setShowMediaTypeSelector] = useState(false); // NOUVEAU
   const [selectedMediaForDuration, setSelectedMediaForDuration] =
@@ -147,7 +147,50 @@ export default function AddMediaForm({
     }
   };
 
-  // NOUVEAU: Sélection des documents avec DocumentPicker
+  // Sélection de photos/vidéos depuis les fichiers avec DocumentPicker
+  const selectMediaFromFiles = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "video/*"],
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets) {
+        const newMedia = result.assets.map((asset: any, index: number) => {
+          const isVideo =
+            asset.mimeType?.startsWith("video/") ||
+            /\.(mp4|mov|avi|mkv|webm)$/i.test(asset.name || "");
+          return {
+            id: Date.now() + index,
+            uri: asset.uri,
+            type: isVideo ? "video" : "image",
+            fileName: asset.name || `media_${Date.now() + index}`,
+            duration: 10,
+            mimeType: asset.mimeType,
+          };
+        });
+
+        const merged = [...selectedMedia, ...newMedia] as any[];
+        setSelectedMedia(merged);
+        onSave(merged);
+
+        newMedia.forEach((media) => {
+          if (media.type === "video") {
+            generateVideoThumbnail(media.uri, media.id.toString());
+          }
+        });
+
+        setShowMediaTypeSelector(false);
+      }
+    } catch (error) {
+      Alert.alert("Erreur", "Impossible de sélectionner les médias");
+    } finally {
+      setIsSelectingMedia(false);
+    }
+  };
+
+  // Sélection des documents avec DocumentPicker
   const selectDocuments = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -497,6 +540,19 @@ export default function AddMediaForm({
                 <Text style={styles.mediaTypeOptionTitle}>Photos & Vidéos</Text>
                 <Text style={styles.mediaTypeOptionDescription}>
                   Sélectionner depuis votre galerie
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mediaTypeOption}
+                onPress={selectMediaFromFiles}
+              >
+                <View style={styles.mediaTypeIcon}>
+                  <Ionicons name="folder-open" size={32} color="#2575fc" />
+                </View>
+                <Text style={styles.mediaTypeOptionTitle}>Photos & Vidéos</Text>
+                <Text style={styles.mediaTypeOptionDescription}>
+                  Sélectionner depuis vos fichiers
                 </Text>
               </TouchableOpacity>
 

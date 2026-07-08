@@ -461,7 +461,10 @@ const SubscriptionScreen = () => {
 
   if (loading) {
     return (
-      <LinearGradient colors={["#0A0E27", "#0F1642", "#0D1B4B"]} style={styles.loadingContainer}>
+      <LinearGradient
+        colors={["#0A0E27", "#0F1642", "#0D1B4B"]}
+        style={styles.loadingContainer}
+      >
         <ActivityIndicator size="large" color="#00E5FF" />
         <Text style={styles.loadingText}>Chargement...</Text>
       </LinearGradient>
@@ -470,7 +473,10 @@ const SubscriptionScreen = () => {
 
   if (!subscriptionData) {
     return (
-      <LinearGradient colors={["#0A0E27", "#0F1642", "#0D1B4B"]} style={styles.errorContainer}>
+      <LinearGradient
+        colors={["#0A0E27", "#0F1642", "#0D1B4B"]}
+        style={styles.errorContainer}
+      >
         <Text style={styles.errorTitle}>Aucun abonnement</Text>
         <Text style={styles.errorText}>
           Vous n'avez pas encore d'abonnement actif
@@ -495,346 +501,378 @@ const SubscriptionScreen = () => {
   const totalPrice = basePrice + addonPrice;
 
   return (
-    <LinearGradient colors={["#0A0E27", "#0F1642", "#0D1B4B"]} style={{ flex: 1 }}>
+    <LinearGradient
+      colors={["#0A0E27", "#0F1642", "#0D1B4B"]}
+      style={{ flex: 1 }}
+    >
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={{ flex: 1 }}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E5FF" colors={["#00E5FF"]} />
-        }
-      >
-        {/* Header */}
-        <LinearGradient
-          colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.02)"]}
-          style={styles.header}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#00E5FF"
+              colors={["#00E5FF"]}
+            />
+          }
         >
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
+          {/* Header */}
+          <LinearGradient
+            colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.02)"]}
+            style={styles.header}
           >
-            <Ionicons name="arrow-back" size={18} color="rgba(255,255,255,0.80)" />
-          </TouchableOpacity>
-
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={styles.headerSubtitle}>Mon Abonnement</Text>
-              <Text style={styles.headerTitle}>
-                {subscriptionData.plan.name}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.headerContent}>
-            <Text style={styles.headerSubtitle}>
-              {subscriptionData.plan.description}
-            </Text>
-          </View>
-
-          <View style={styles.statusContainer}>
-            <View
-              style={[
-                styles.statusBadge,
-                { backgroundColor: getStatusColor(subscriptionData.status) + "22", borderColor: getStatusColor(subscriptionData.status) + "55" },
-              ]}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
             >
-              <View style={[styles.statusDot, { backgroundColor: getStatusColor(subscriptionData.status) }]} />
-              <Text style={[styles.statusText, { color: getStatusColor(subscriptionData.status) }]}>
-                {getStatusText(subscriptionData.status)}
+              <Ionicons
+                name="arrow-back"
+                size={18}
+                color="rgba(255,255,255,0.80)"
+              />
+            </TouchableOpacity>
+
+            <View style={styles.headerContent}>
+              <View>
+                <Text style={styles.headerSubtitle}>Mon Abonnement</Text>
+                <Text style={styles.headerTitle}>
+                  {subscriptionData.plan.name}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.headerContent}>
+              <Text style={styles.headerSubtitle}>
+                {subscriptionData.plan.description}
               </Text>
             </View>
-          </View>
-        </LinearGradient>
 
-        {/* Cartes d'utilisation */}
-        <View style={styles.metricsContainer}>
-          <View style={styles.metricsGrid}>
-            {/* Utilisation des écrans */}
-            <View style={styles.metricCard}>
-              <View style={styles.metricHeader}>
-                <View>
-                  <Text style={styles.metricTitle}>Écrans</Text>
-                  <Text style={styles.metricValue}>
-                    {subscriptionData.usedScreens} /{" "}
-                    {subscriptionData.currentMaxScreens}
-                  </Text>
-                  {subscriptionData.extraScreens > 0 && (
-                    <Text style={styles.metricExtra}>
-                      ({subscriptionData.baseScreens} +{" "}
-                      {subscriptionData.extraScreens} écrans supplémentaires)
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.iconContainer}>
-                  <Text style={styles.iconText}>📺</Text>
-                </View>
-              </View>
-              <View style={styles.progressBar}>
+            <View style={styles.statusContainer}>
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor:
+                      getStatusColor(subscriptionData.status) + "22",
+                    borderColor: getStatusColor(subscriptionData.status) + "55",
+                  },
+                ]}
+              >
                 <View
                   style={[
-                    styles.progressFill,
-                    { width: `${screenUsagePercentage}%` },
+                    styles.statusDot,
+                    {
+                      backgroundColor: getStatusColor(subscriptionData.status),
+                    },
                   ]}
                 />
-              </View>
-              <Text style={styles.metricSubtext}>
-                {subscriptionData.currentMaxScreens -
-                  subscriptionData.usedScreens}{" "}
-                disponibles
-              </Text>
-            </View>
-          </View>
-
-          {/* Période de facturation */}
-          <View style={styles.fullWidthCard}>
-            <View style={styles.billingHeader}>
-              <Text style={styles.billingTitle}>Période actuelle</Text>
-              <View>
-                <Text style={styles.billingPrice}>{totalPrice}€</Text>
-                <Text style={styles.billingInterval}>
-                  /{subscriptionData.plan.interval === "year" ? "an" : "mois"}
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: getStatusColor(subscriptionData.status) },
+                  ]}
+                >
+                  {getStatusText(subscriptionData.status)}
                 </Text>
-                {/* {subscriptionData.extraScreens > 0 && (
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* Cartes d'utilisation */}
+          <View style={styles.metricsContainer}>
+            <View style={styles.metricsGrid}>
+              {/* Utilisation des écrans */}
+              <View style={styles.metricCard}>
+                <View style={styles.metricHeader}>
+                  <View>
+                    <Text style={styles.metricTitle}>Écrans</Text>
+                    <Text style={styles.metricValue}>
+                      {subscriptionData.usedScreens} /{" "}
+                      {subscriptionData.currentMaxScreens}
+                    </Text>
+                    {subscriptionData.extraScreens > 0 && (
+                      <Text style={styles.metricExtra}>
+                        ({subscriptionData.baseScreens} +{" "}
+                        {subscriptionData.extraScreens} écrans supplémentaires)
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.iconContainer}>
+                    <Text style={styles.iconText}>📺</Text>
+                  </View>
+                </View>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${screenUsagePercentage}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.metricSubtext}>
+                  {subscriptionData.currentMaxScreens -
+                    subscriptionData.usedScreens}{" "}
+                  disponibles
+                </Text>
+              </View>
+            </View>
+
+            {/* Période de facturation */}
+            <View style={styles.fullWidthCard}>
+              <View style={styles.billingHeader}>
+                <Text style={styles.billingTitle}>Période actuelle</Text>
+                <View>
+                  <Text style={styles.billingPrice}>{totalPrice}€</Text>
+                  <Text style={styles.billingInterval}>
+                    /{subscriptionData.plan.interval === "year" ? "an" : "mois"}
+                  </Text>
+                  {/* {subscriptionData.extraScreens > 0 && (
                   <Text style={styles.billingBreakdown}>
                     {basePrice}€ + {addonPrice}€ d'option suppl.
                   </Text>
                 )} */}
+                </View>
               </View>
-            </View>
-            <View style={styles.billingDivider} />
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Début de période</Text>
-              <Text style={styles.billingValue}>
-                {formatDate(subscriptionData.currentPeriodStart)}
-              </Text>
-            </View>
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Fin de période</Text>
-              <Text style={styles.billingValue}>
-                {formatDate(subscriptionData.currentPeriodEnd)}
-              </Text>
-            </View>
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Renouvellement</Text>
-              <Text style={styles.billingValue}>
-                {daysUntilRenewal > 0
-                  ? `Dans ${daysUntilRenewal} jours`
-                  : "Expiré"}
-              </Text>
-            </View>
+              <View style={styles.billingDivider} />
+              <View style={styles.billingRow}>
+                <Text style={styles.billingLabel}>Début de période</Text>
+                <Text style={styles.billingValue}>
+                  {formatDate(subscriptionData.currentPeriodStart)}
+                </Text>
+              </View>
+              <View style={styles.billingRow}>
+                <Text style={styles.billingLabel}>Fin de période</Text>
+                <Text style={styles.billingValue}>
+                  {formatDate(subscriptionData.currentPeriodEnd)}
+                </Text>
+              </View>
+              <View style={styles.billingRow}>
+                <Text style={styles.billingLabel}>Renouvellement</Text>
+                <Text style={styles.billingValue}>
+                  {daysUntilRenewal > 0
+                    ? `Dans ${daysUntilRenewal} jours`
+                    : "Expiré"}
+                </Text>
+              </View>
 
-            {/* <TouchableOpacity
+              {/* <TouchableOpacity
               style={styles.manageButton}
               onPress={handleManageSubscription}
             >
               <Text style={styles.manageButtonText}>Gérer l'abonnement</Text>
             </TouchableOpacity> */}
+            </View>
           </View>
-        </View>
 
-        {/* Alertes */}
-        {subscriptionData.cancelAtPeriodEnd && (
-          <View style={styles.alertContainer}>
-            <View style={[styles.alertCard, { backgroundColor: "#FEF3C7" }]}>
-              <View style={styles.alertHeader}>
-                <View
-                  style={[
-                    styles.alertIconContainer,
-                    { backgroundColor: "#F59E0B" },
-                  ]}
+          {/* Alertes */}
+          {subscriptionData.cancelAtPeriodEnd && (
+            <View style={styles.alertContainer}>
+              <View style={[styles.alertCard, { backgroundColor: "#FEF3C7" }]}>
+                <View style={styles.alertHeader}>
+                  <View
+                    style={[
+                      styles.alertIconContainer,
+                      { backgroundColor: "#F59E0B" },
+                    ]}
+                  >
+                    <Text style={styles.alertIcon}>⚠️</Text>
+                  </View>
+                  <View style={styles.alertContent}>
+                    <Text style={styles.alertTitle}>Annulation programmée</Text>
+                    <Text style={styles.alertText}>
+                      Votre abonnement sera annulé le{" "}
+                      {formatDate(subscriptionData.currentPeriodEnd)}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.alertButton}
+                  onPress={handleManageSubscription}
                 >
-                  <Text style={styles.alertIcon}>⚠️</Text>
-                </View>
-                <View style={styles.alertContent}>
-                  <Text style={styles.alertTitle}>Annulation programmée</Text>
-                  <Text style={styles.alertText}>
-                    Votre abonnement sera annulé le{" "}
-                    {formatDate(subscriptionData.currentPeriodEnd)}
-                  </Text>
-                </View>
+                  <Text style={styles.alertButtonText}>Réactiver</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.alertButton}
-                onPress={handleManageSubscription}
-              >
-                <Text style={styles.alertButtonText}>Réactiver</Text>
-              </TouchableOpacity>
             </View>
-          </View>
-        )}
+          )}
 
-        {screenUsagePercentage > 80 && (
-          <View style={styles.alertContainer}>
-            <View style={[styles.alertCard, { backgroundColor: "#FEF3C7" }]}>
-              <View style={styles.alertHeader}>
-                <View
-                  style={[
-                    styles.alertIconContainer,
-                    { backgroundColor: "#F59E0B" },
-                  ]}
+          {screenUsagePercentage > 80 && (
+            <View style={styles.alertContainer}>
+              <View style={[styles.alertCard, { backgroundColor: "#FEF3C7" }]}>
+                <View style={styles.alertHeader}>
+                  <View
+                    style={[
+                      styles.alertIconContainer,
+                      { backgroundColor: "#F59E0B" },
+                    ]}
+                  >
+                    <Text style={styles.alertIcon}>📺</Text>
+                  </View>
+                  <View style={styles.alertContent}>
+                    <Text style={styles.alertTitle}>
+                      Limite d'écrans approchée
+                    </Text>
+                    <Text style={styles.alertText}>
+                      Vous utilisez {subscriptionData.usedScreens} écrans sur{" "}
+                      {subscriptionData.currentMaxScreens} disponibles
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.alertButton}
+                  onPress={handleUpgradeScreens}
                 >
-                  <Text style={styles.alertIcon}>📺</Text>
-                </View>
-                <View style={styles.alertContent}>
-                  <Text style={styles.alertTitle}>
-                    Limite d'écrans approchée
+                  <Text style={styles.alertButtonText}>
+                    Ajouter des écrans (+5€/écran)
                   </Text>
-                  <Text style={styles.alertText}>
-                    Vous utilisez {subscriptionData.usedScreens} écrans sur{" "}
-                    {subscriptionData.currentMaxScreens} disponibles
-                  </Text>
-                </View>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.alertButton}
-                onPress={handleUpgradeScreens}
-              >
-                <Text style={styles.alertButtonText}>
-                  Ajouter des écrans (+5€/écran)
-                </Text>
-              </TouchableOpacity>
             </View>
+          )}
+
+          {/* Actions */}
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity
+              style={styles.dangerButton}
+              onPress={handleCancelSubscription}
+            >
+              <Text style={styles.dangerButtonText}>Annuler l'abonnement</Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        {/* Actions */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={styles.dangerButton}
-            onPress={handleCancelSubscription}
-          >
-            <Text style={styles.dangerButtonText}>Annuler l'abonnement</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.bottomPadding} />
+        </ScrollView>
 
-        <View style={styles.bottomPadding} />
-      </ScrollView>
-
-      {/* 🆕 MODAL DE SÉLECTION DES TVs */}
-      <Modal
-        visible={displayTVSelection}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setDisplayTVSelection(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            {/* Header du modal */}
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>
-                  Sélectionner les TVs à supprimer
-                </Text>
-                <Text style={styles.modalSubtitle}>
-                  {myTVS.length} TV(s) connectée(s) • Max après annulation:{" "}
-                  {subscriptionData?.baseScreens}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setDisplayTVSelection(false)}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Barre d'info */}
-            <View style={styles.infoBar}>
-              <View style={styles.infoBarLeft}>
-                <Ionicons name="information-circle" size={20} color="#3B82F6" />
-                <Text style={styles.infoBarText}>
-                  Sélectionnez {myTVS.length - subscriptionData?.baseScreens}{" "}
-                  TV(s) minimum
-                </Text>
-              </View>
-              {selectedTVs.length > 0 && (
-                <View style={styles.selectionBadge}>
-                  <Text style={styles.selectionBadgeText}>
-                    {selectedTVs.length} sélectionnée(s)
+        {/* 🆕 MODAL DE SÉLECTION DES TVs */}
+        <Modal
+          visible={displayTVSelection}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setDisplayTVSelection(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              {/* Header du modal */}
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>
+                    Sélectionner les TVs à supprimer
+                  </Text>
+                  <Text style={styles.modalSubtitle}>
+                    {myTVS.length} TV(s) connectée(s) • Max après annulation:{" "}
+                    {subscriptionData?.baseScreens}
                   </Text>
                 </View>
-              )}
-            </View>
+                <TouchableOpacity
+                  style={styles.modalCloseButton}
+                  onPress={() => setDisplayTVSelection(false)}
+                >
+                  <Ionicons name="close" size={24} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
 
-            {/* Bouton de sélection rapide */}
-            {myTVS.length > subscriptionData?.baseScreens && (
-              <TouchableOpacity
-                style={styles.quickSelectButton}
-                onPress={selectExcessTVs}
-              >
-                <Ionicons name="flash" size={16} color="#667eea" />
-                <Text style={styles.quickSelectText}>
-                  Sélectionner automatiquement les TVs excédentaires
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Liste des TVs */}
-            <FlatList
-              data={myTVS}
-              renderItem={renderTVItem}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.tvList}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
-                <View style={styles.emptyList}>
-                  <Text style={styles.emptyListText}>Aucune TV trouvée</Text>
+              {/* Barre d'info */}
+              <View style={styles.infoBar}>
+                <View style={styles.infoBarLeft}>
+                  <Ionicons
+                    name="information-circle"
+                    size={20}
+                    color="#3B82F6"
+                  />
+                  <Text style={styles.infoBarText}>
+                    Sélectionnez {myTVS.length - subscriptionData?.baseScreens}{" "}
+                    TV(s) minimum
+                  </Text>
                 </View>
-              }
-            />
-
-            {/* Footer avec actions */}
-            <View style={styles.modalFooter}>
-              <View style={styles.footerInfo}>
-                <Text style={styles.footerInfoText}>
-                  TVs restantes après suppression:{" "}
-                  <Text style={styles.footerInfoValue}>
-                    {myTVS.length - selectedTVs.length}
-                  </Text>
-                </Text>
-                {!canProceedWithCancellation() && (
-                  <Text style={styles.footerWarning}>
-                    ⚠️ Vous devez supprimer plus de TVs
-                  </Text>
+                {selectedTVs.length > 0 && (
+                  <View style={styles.selectionBadge}>
+                    <Text style={styles.selectionBadgeText}>
+                      {selectedTVs.length} sélectionnée(s)
+                    </Text>
+                  </View>
                 )}
               </View>
 
-              <View style={styles.footerButtons}>
+              {/* Bouton de sélection rapide */}
+              {myTVS.length > subscriptionData?.baseScreens && (
                 <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setDisplayTVSelection(false);
-                    setSelectedTVs([]);
-                  }}
+                  style={styles.quickSelectButton}
+                  onPress={selectExcessTVs}
                 >
-                  <Text style={styles.cancelButtonText}>Annuler</Text>
+                  <Ionicons name="flash" size={16} color="#667eea" />
+                  <Text style={styles.quickSelectText}>
+                    Sélectionner automatiquement les TVs excédentaires
+                  </Text>
                 </TouchableOpacity>
+              )}
 
-                <TouchableOpacity
-                  style={[
-                    styles.confirmButton,
-                    (!canProceedWithCancellation() || cancelling) &&
-                      styles.confirmButtonDisabled,
-                  ]}
-                  onPress={confirmCancellation}
-                  disabled={!canProceedWithCancellation() || cancelling}
-                >
-                  {cancelling ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="trash" size={18} color="#fff" />
-                      <Text style={styles.confirmButtonText}>
-                        Supprimer et annuler
-                      </Text>
-                    </>
+              {/* Liste des TVs */}
+              <FlatList
+                data={myTVS}
+                renderItem={renderTVItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.tvList}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                  <View style={styles.emptyList}>
+                    <Text style={styles.emptyListText}>Aucune TV trouvée</Text>
+                  </View>
+                }
+              />
+
+              {/* Footer avec actions */}
+              <View style={styles.modalFooter}>
+                <View style={styles.footerInfo}>
+                  <Text style={styles.footerInfoText}>
+                    TVs restantes après suppression:{" "}
+                    <Text style={styles.footerInfoValue}>
+                      {myTVS.length - selectedTVs.length}
+                    </Text>
+                  </Text>
+                  {!canProceedWithCancellation() && (
+                    <Text style={styles.footerWarning}>
+                      ⚠️ Vous devez supprimer plus de TVs
+                    </Text>
                   )}
-                </TouchableOpacity>
+                </View>
+
+                <View style={styles.footerButtons}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => {
+                      setDisplayTVSelection(false);
+                      setSelectedTVs([]);
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Annuler</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.confirmButton,
+                      (!canProceedWithCancellation() || cancelling) &&
+                        styles.confirmButtonDisabled,
+                    ]}
+                    onPress={confirmCancellation}
+                    disabled={!canProceedWithCancellation() || cancelling}
+                  >
+                    {cancelling ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <>
+                        <Ionicons name="trash" size={18} color="#fff" />
+                        <Text style={styles.confirmButtonText}>
+                          Supprimer et annuler
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );

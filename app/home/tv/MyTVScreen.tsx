@@ -12,6 +12,8 @@ import {
   Animated,
   PanResponder,
   Dimensions,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -70,6 +72,8 @@ interface Television {
   status: "ONLINE" | "OFFLINE" | "PLAYING" | "PAUSED" | "ERROR";
   lastSeen: string | null;
   playlists: PlaylistTelevision[];
+  powerOnTime: string | null;
+  powerOffTime: string | null;
 }
 interface PlaylistTelevision {
   id: string;
@@ -82,6 +86,14 @@ interface PlaylistTelevision {
     isActive: boolean;
   };
 }
+
+const parseTime = (t: string): [number, number] => {
+  const [h, m] = t.split(":").map(Number);
+  return [h || 0, m || 0];
+};
+
+const toTime = (h: number, m: number) =>
+  `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -251,6 +263,13 @@ const TVCard: React.FC<{ item: Television; onDelete: () => void }> = ({
 }) => {
   const status = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.OFFLINE;
   const activePlaylist = item.playlists.find((p) => p.isActive);
+
+  const handlePress = () => {
+    router.push({
+      pathname: "/home/tv/[tvId]",
+      params: { tvId: item.id, item: JSON.stringify(item) },
+    });
+  };
   const entranceY = useRef(new Animated.Value(16)).current;
   const entranceOp = useRef(new Animated.Value(0)).current;
 
@@ -275,130 +294,132 @@ const TVCard: React.FC<{ item: Television; onDelete: () => void }> = ({
       <Animated.View
         style={{ opacity: entranceOp, transform: [{ translateY: entranceY }] }}
       >
-        <LinearGradient
-          colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.03)"]}
-          style={card.wrap}
-        >
-          {/* Status bar top */}
-          <View style={[card.topBar, { backgroundColor: status.color }]} />
+        <TouchableOpacity onPress={handlePress} activeOpacity={0.85}>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.06)", "rgba(255,255,255,0.03)"]}
+            style={card.wrap}
+          >
+            {/* Status bar top */}
+            <View style={[card.topBar, { backgroundColor: status.color }]} />
 
-          {/* Header */}
-          <View style={card.header}>
-            <View
-              style={[
-                card.iconWrap,
-                {
-                  backgroundColor: status.dimColor,
-                  borderColor: status.borderColor,
-                },
-              ]}
-            >
-              <Ionicons name="tv-outline" size={22} color={status.color} />
+            {/* Header */}
+            <View style={card.header}>
+              <View
+                style={[
+                  card.iconWrap,
+                  {
+                    backgroundColor: status.dimColor,
+                    borderColor: status.borderColor,
+                  },
+                ]}
+              >
+                <Ionicons name="tv-outline" size={22} color={status.color} />
+              </View>
+
+              <View style={card.headerText}>
+                <Text style={card.tvName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                {item.location ? (
+                  <View style={card.locationRow}>
+                    <Ionicons
+                      name="location-outline"
+                      size={12}
+                      color={C.white40}
+                    />
+                    <Text style={card.locationText}>{item.location}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Status badge */}
+              <View
+                style={[
+                  card.statusBadge,
+                  {
+                    backgroundColor: status.dimColor,
+                    borderColor: status.borderColor,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={status.icon as any}
+                  size={13}
+                  color={status.color}
+                />
+                <Text style={[card.statusText, { color: status.color }]}>
+                  {status.label}
+                </Text>
+              </View>
             </View>
 
-            <View style={card.headerText}>
-              <Text style={card.tvName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              {item.location ? (
-                <View style={card.locationRow}>
-                  <Ionicons
-                    name="location-outline"
-                    size={12}
-                    color={C.white40}
-                  />
-                  <Text style={card.locationText}>{item.location}</Text>
-                </View>
-              ) : null}
-            </View>
+            {/* Divider */}
+            <View style={card.divider} />
 
-            {/* Status badge */}
-            <View
-              style={[
-                card.statusBadge,
-                {
-                  backgroundColor: status.dimColor,
-                  borderColor: status.borderColor,
-                },
-              ]}
-            >
-              <Ionicons
-                name={status.icon as any}
-                size={13}
-                color={status.color}
-              />
-              <Text style={[card.statusText, { color: status.color }]}>
-                {status.label}
-              </Text>
-            </View>
-          </View>
-
-          {/* Divider */}
-          <View style={card.divider} />
-
-          {/* Info row */}
-          <View style={card.infoRow}>
-            <View style={card.infoChip}>
-              <Ionicons name="resize-outline" size={13} color={C.white40} />
-              <Text style={card.infoChipText}>{item.resolution}</Text>
-            </View>
-            <View style={card.infoChip}>
-              <Ionicons
-                name="phone-portrait-outline"
-                size={13}
-                color={C.white40}
-              />
-              <Text style={card.infoChipText}>{item.orientation}</Text>
-            </View>
-            {item.lastSeen && (
+            {/* Info row */}
+            <View style={card.infoRow}>
               <View style={card.infoChip}>
-                <Ionicons name="time-outline" size={13} color={C.white40} />
-                <Text style={card.infoChipText}>
-                  {formatLastSeen(item.lastSeen)}
+                <Ionicons name="resize-outline" size={13} color={C.white40} />
+                <Text style={card.infoChipText}>{item.resolution}</Text>
+              </View>
+              <View style={card.infoChip}>
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={13}
+                  color={C.white40}
+                />
+                <Text style={card.infoChipText}>{item.orientation}</Text>
+              </View>
+              {item.lastSeen && (
+                <View style={card.infoChip}>
+                  <Ionicons name="time-outline" size={13} color={C.white40} />
+                  <Text style={card.infoChipText}>
+                    {formatLastSeen(item.lastSeen)}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Playlist */}
+            {activePlaylist ? (
+              <View style={card.playlistBox}>
+                <View style={card.playlistBoxHeader}>
+                  <View style={card.playlistDot} />
+                  <Text style={card.playlistLabel}>PLAYLIST ACTIVE</Text>
+                </View>
+                <Text style={card.playlistName} numberOfLines={1}>
+                  {activePlaylist.playlist.name}
+                </Text>
+                {activePlaylist.playlist.description ? (
+                  <Text style={card.playlistDesc} numberOfLines={1}>
+                    {activePlaylist.playlist.description}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <View style={card.noPlaylist}>
+                <Ionicons
+                  name="musical-notes-outline"
+                  size={14}
+                  color={C.white40}
+                />
+                <Text style={card.noPlaylistText}>Aucune playlist active</Text>
+              </View>
+            )}
+
+            {/* Footer */}
+            {item.playlists.length > 0 && (
+              <View style={card.footer}>
+                <Ionicons name="layers-outline" size={13} color={C.white40} />
+                <Text style={card.footerText}>
+                  {item.playlists.length} playlist
+                  {item.playlists.length > 1 ? "s" : ""} associée
+                  {item.playlists.length > 1 ? "s" : ""}
                 </Text>
               </View>
             )}
-          </View>
-
-          {/* Playlist */}
-          {activePlaylist ? (
-            <View style={card.playlistBox}>
-              <View style={card.playlistBoxHeader}>
-                <View style={card.playlistDot} />
-                <Text style={card.playlistLabel}>PLAYLIST ACTIVE</Text>
-              </View>
-              <Text style={card.playlistName} numberOfLines={1}>
-                {activePlaylist.playlist.name}
-              </Text>
-              {activePlaylist.playlist.description ? (
-                <Text style={card.playlistDesc} numberOfLines={1}>
-                  {activePlaylist.playlist.description}
-                </Text>
-              ) : null}
-            </View>
-          ) : (
-            <View style={card.noPlaylist}>
-              <Ionicons
-                name="musical-notes-outline"
-                size={14}
-                color={C.white40}
-              />
-              <Text style={card.noPlaylistText}>Aucune playlist active</Text>
-            </View>
-          )}
-
-          {/* Footer */}
-          {item.playlists.length > 0 && (
-            <View style={card.footer}>
-              <Ionicons name="layers-outline" size={13} color={C.white40} />
-              <Text style={card.footerText}>
-                {item.playlists.length} playlist
-                {item.playlists.length > 1 ? "s" : ""} associée
-                {item.playlists.length > 1 ? "s" : ""}
-              </Text>
-            </View>
-          )}
-        </LinearGradient>
+          </LinearGradient>
+        </TouchableOpacity>
       </Animated.View>
     </SwipeableCard>
   );
@@ -522,11 +543,447 @@ const card = StyleSheet.create({
   footerText: { fontSize: 12, color: C.white40 },
 });
 
+// ─── SchedulePanel ───────────────────────────────────────────────────────────
+// Applique powerOnTime/powerOffTime (allumage/extinction quotidiens, gérés par
+// l'app TV) à toutes les télévisions de l'utilisateur en une seule action.
+// Pas de sélection de jours ici : ces champs s'appliquent tous les jours, il
+// n'existe pas de granularité par jour côté serveur/TV pour l'alimentation.
+const SchedulePanel: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  televisions: Television[];
+  onSaved: () => void;
+}> = ({ visible, onClose, televisions, onSaved }) => {
+  const slideY = useRef(new Animated.Value(800)).current;
+  const bgOp = useRef(new Animated.Value(0)).current;
+
+  const [startH, setStartH] = useState(8);
+  const [startM, setStartM] = useState(0);
+  const [endH, setEndH] = useState(22);
+  const [endM, setEndM] = useState(0);
+  const [isActive, setIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      // Pré-remplit avec les horaires de la première TV qui en a déjà —
+      // sinon des valeurs par défaut raisonnables.
+      const withPower = televisions.find(
+        (t) => t.powerOnTime || t.powerOffTime,
+      );
+      if (withPower) {
+        const [sh, sm] = parseTime(withPower.powerOnTime ?? "08:00");
+        const [eh, em] = parseTime(withPower.powerOffTime ?? "22:00");
+        setStartH(sh);
+        setStartM(sm);
+        setEndH(eh);
+        setEndM(em);
+        setIsActive(true);
+      } else {
+        setStartH(8);
+        setStartM(0);
+        setEndH(22);
+        setEndM(0);
+        setIsActive(true);
+      }
+      Animated.parallel([
+        Animated.timing(bgOp, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideY, {
+          toValue: 0,
+          tension: 65,
+          friction: 11,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(bgOp, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideY, {
+          toValue: 800,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const handleSave = async () => {
+    if (televisions.length === 0) {
+      onClose();
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = isActive
+        ? {
+            powerOnTime: toTime(startH, startM),
+            powerOffTime: toTime(endH, endM),
+          }
+        : { powerOnTime: null, powerOffTime: null };
+
+      await Promise.all(
+        televisions.map((tv) => api.patch(`/televisions/${tv.id}`, payload)),
+      );
+
+      onSaved();
+      onClose();
+      Alert.alert(
+        "Sauvegardé",
+        "Programmation générale sauvegardée avec succès ! De " +
+          toTime(startH, startM) +
+          " à " +
+          toTime(endH, endM),
+      );
+    } catch (e: any) {
+      Alert.alert(
+        "Erreur",
+        e.response?.data?.message ?? "Impossible de sauvegarder",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const TimeUnit = ({
+    value,
+    onUp,
+    onDown,
+  }: {
+    value: number;
+    onUp: () => void;
+    onDown: () => void;
+  }) => (
+    <View style={sp.timeUnit}>
+      <TouchableOpacity onPress={onUp} style={sp.timeArrow}>
+        <Ionicons name="chevron-up" size={22} color={C.white60} />
+      </TouchableOpacity>
+      <Text style={sp.timeValue}>{String(value).padStart(2, "0")}</Text>
+      <TouchableOpacity onPress={onDown} style={sp.timeArrow}>
+        <Ionicons name="chevron-down" size={22} color={C.white60} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+    >
+      <Animated.View style={[sp.backdrop, { opacity: bgOp }]}>
+        <TouchableOpacity
+          style={{ flex: 1 }}
+          onPress={onClose}
+          activeOpacity={1}
+        />
+      </Animated.View>
+
+      <Animated.View
+        style={[sp.panel, { transform: [{ translateY: slideY }] }]}
+      >
+        <LinearGradient colors={["#141A3D", "#0F1332"]} style={sp.panelInner}>
+          <View style={sp.handle} />
+
+          {/* Header */}
+          <View style={sp.header}>
+            <View style={sp.headerLeft}>
+              <Text style={sp.title}>Programmation générale</Text>
+              <Text style={sp.subtitle}>Toutes les TVs</Text>
+            </View>
+          </View>
+
+          <ScrollView
+            style={sp.scroll}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 50 }}
+          >
+            {/* Activer/désactiver */}
+            <View style={sp.toggleRow}>
+              <View style={sp.toggleRowLeft}>
+                <Ionicons
+                  name="power"
+                  size={18}
+                  color={isActive ? C.success : C.white40}
+                />
+                <Text style={[sp.toggleLabel, isActive && { color: C.white }]}>
+                  {isActive
+                    ? "Programmation activée"
+                    : "Programmation désactivée"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[sp.toggleBtn, isActive && sp.toggleBtnOn]}
+                onPress={() => setIsActive((v) => !v)}
+                activeOpacity={0.8}
+              >
+                <View style={[sp.toggleKnob, isActive && sp.toggleKnobOn]} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Heure allumage */}
+            <View style={sp.formSection}>
+              <View style={sp.formLabelRow}>
+                <View style={[sp.labelDot, { backgroundColor: C.success }]} />
+                <Text style={sp.formLabel}>Allumer à</Text>
+              </View>
+              <View style={sp.timePicker}>
+                <TimeUnit
+                  value={startH}
+                  onUp={() => setStartH((h) => (h + 1) % 24)}
+                  onDown={() => setStartH((h) => (h - 1 + 24) % 24)}
+                />
+                <Text style={sp.timeSep}>:</Text>
+                <TimeUnit
+                  value={startM}
+                  onUp={() => setStartM((m) => (m >= 55 ? 0 : m + 5))}
+                  onDown={() => setStartM((m) => (m <= 0 ? 55 : m - 5))}
+                />
+              </View>
+            </View>
+
+            {/* Heure extinction */}
+            <View style={sp.formSection}>
+              <View style={sp.formLabelRow}>
+                <View style={[sp.labelDot, { backgroundColor: C.error }]} />
+                <Text style={sp.formLabel}>Éteindre à</Text>
+              </View>
+              <View style={sp.timePicker}>
+                <TimeUnit
+                  value={endH}
+                  onUp={() => setEndH((h) => (h + 1) % 24)}
+                  onDown={() => setEndH((h) => (h - 1 + 24) % 24)}
+                />
+                <Text style={sp.timeSep}>:</Text>
+                <TimeUnit
+                  value={endM}
+                  onUp={() => setEndM((m) => (m >= 55 ? 0 : m + 5))}
+                  onDown={() => setEndM((m) => (m <= 0 ? 55 : m - 5))}
+                />
+              </View>
+            </View>
+
+            {/* Résumé visuel */}
+            <View style={sp.summaryBox}>
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={C.accent}
+              />
+              <Text style={sp.summaryText}>
+                {isActive ? (
+                  <>
+                    Toutes les TVs seront allumées à{" "}
+                    <Text style={{ color: C.success, fontWeight: "700" }}>
+                      {toTime(startH, startM)}
+                    </Text>{" "}
+                    et éteintes à{" "}
+                    <Text style={{ color: C.error, fontWeight: "700" }}>
+                      {toTime(endH, endM)}
+                    </Text>{" "}
+                    chaque jour.
+                  </>
+                ) : (
+                  "La programmation d'alimentation sera désactivée pour toutes les TVs."
+                )}
+              </Text>
+            </View>
+
+            {/* Sauvegarder */}
+            <TouchableOpacity
+              style={sp.saveBtn}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[C.accent, C.accentDark]}
+                style={sp.saveBtnGrad}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={C.white} />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={18}
+                      color={C.white}
+                    />
+                    <Text style={sp.saveBtnText}>
+                      Appliquer à toutes les TVs
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </ScrollView>
+        </LinearGradient>
+      </Animated.View>
+    </Modal>
+  );
+};
+
+const sp = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.65)",
+  },
+  panel: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "87%",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: "hidden",
+  },
+  panelInner: {
+    flex: 1,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderBottomWidth: 0,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.white20,
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  headerLeft: { flex: 1 },
+  title: { fontSize: 18, fontWeight: "800", color: C.white },
+  subtitle: { fontSize: 12, color: C.white40, marginTop: 2 },
+  scroll: { flex: 1, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 50 },
+
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: C.white05,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 14,
+    marginBottom: 24,
+  },
+  toggleRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  toggleLabel: { fontSize: 14, fontWeight: "600", color: C.white60 },
+  toggleBtn: {
+    width: 48,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 3,
+    justifyContent: "center",
+  },
+  toggleBtnOn: { backgroundColor: C.accentDim, borderColor: C.accentBorder },
+  toggleKnob: {
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    backgroundColor: C.white40,
+  },
+  toggleKnobOn: { backgroundColor: C.accent, alignSelf: "flex-end" },
+
+  formSection: { marginBottom: 22 },
+  formLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  labelDot: { width: 8, height: 8, borderRadius: 4 },
+  formLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.white60,
+    letterSpacing: 0.4,
+  },
+  timePicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: C.white05,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingVertical: 10,
+  },
+  timeUnit: { alignItems: "center", width: 76 },
+  timeArrow: { padding: 8 },
+  timeValue: {
+    fontSize: 40,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: -0.5,
+  },
+  timeSep: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: C.white40,
+    marginBottom: 4,
+  },
+
+  summaryBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: C.accentDim,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    padding: 14,
+    marginBottom: 22,
+  },
+  summaryText: { flex: 1, fontSize: 13, color: C.white60, lineHeight: 20 },
+
+  saveBtn: { borderRadius: 16, overflow: "hidden" },
+  saveBtnGrad: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 16,
+  },
+  saveBtnText: { fontSize: 15, fontWeight: "700", color: C.white },
+});
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function MyTelevisionsScreen() {
   const [televisions, setTelevisions] = useState<Television[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSchedules, setShowSchedules] = useState(false);
   const { user, subscription } = useAuth();
 
   const fetchTelevisions = useCallback(async () => {
@@ -677,6 +1134,14 @@ export default function MyTelevisionsScreen() {
           </View>
 
           <TouchableOpacity
+            style={s.scheduleBtn}
+            onPress={() => setShowSchedules(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="calendar-outline" size={18} color={C.accent} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[s.powerAllBtn, onlineCount === 0 && s.powerAllBtnOn]}
             activeOpacity={0.8}
             onPress={() => {
@@ -729,6 +1194,14 @@ export default function MyTelevisionsScreen() {
             Glissez vers la gauche pour supprimer
           </Text>
         </View>
+
+        {/* ── Schedule Panel ── */}
+        <SchedulePanel
+          visible={showSchedules}
+          onClose={() => setShowSchedules(false)}
+          televisions={televisions}
+          onSaved={fetchTelevisions}
+        />
 
         {/* ── FlatList ── */}
         <FlatList
@@ -875,6 +1348,18 @@ const s = StyleSheet.create({
     paddingBottom: 10,
   },
   swipeHintText: { fontSize: 12, color: C.white40 },
+
+  // ── Schedule ──
+  scheduleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: C.accentDim,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 
   // ── Power all ──
   powerAllBtn: {

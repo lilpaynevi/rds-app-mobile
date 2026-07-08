@@ -399,6 +399,7 @@ const HomeScreen = () => {
       tvs.forEach((tv) => {
         socket.emit("join-room", { roomName: tv.id });
       });
+      setLoading(false);
     } catch {
       Alert.alert("Erreur", "Impossible de charger les données");
     } finally {

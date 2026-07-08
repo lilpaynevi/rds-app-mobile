@@ -2,7 +2,7 @@
   "expo": {
     "name": "RDS Info",
     "slug": "rds-app",
-    "version": "1.0.1",
+    "version": "1.2.2",
     "orientation": "portrait",
     "icon": "./assets/images/rds-logo-white.jpg",
     "backgroundColor": "#0A192F",
@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rds.mobile",
-      "buildNumber": "1.2",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -44,6 +44,10 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.CHANGE_WIFI_MULTICAST_STATE",
         "android.permission.INTERNET"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.rdsconnect.rdsapp"

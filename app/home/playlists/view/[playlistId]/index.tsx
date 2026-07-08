@@ -199,6 +199,39 @@ const ReorderModal = ({ visible, onClose, media, onReorder }) => {
   );
 };
 
+// Composant dédié vidéo — recréé via key sur l'URI
+const VideoPlayerView = ({ uri }: { uri: string }) => {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = false;
+    p.muted = false;
+    p.play();
+  });
+
+  useEffect(() => {
+    return () => {
+      player.release();
+    };
+  }, [player]);
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#000",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <VideoView
+        player={player}
+        style={{ width, height: height * 0.7 }}
+        allowsPictureInPicture
+        nativeControls
+      />
+    </View>
+  );
+};
+
 const MediaViewerModal = ({
   visible,
   media,
@@ -208,120 +241,44 @@ const MediaViewerModal = ({
   onNavigate,
   onDelete,
 }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-
-  const player = useVideoPlayer(
-    media?.url ? baseURL + media.url : null,
-    (player) => {
-      player.loop = true;
-      player.muted = false;
-    },
-  );
-
-  useEffect(() => {
-    if (player) {
-      const subscription = player.addListener("playingChange", (isPlaying) => {
-        setIsPlaying(isPlaying);
-      });
-
-      return () => {
-        subscription?.remove();
-      };
-    }
-  }, [player]);
-
-  useEffect(() => {
-    let timeout;
-    if (showControls) {
-      timeout = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-    }
-    return () => clearTimeout(timeout);
-  }, [showControls]);
-
-  useEffect(() => {
-    if (visible && media?.url && player) {
-      player.replace(baseURL + media.url);
-    }
-  }, [media?.url, visible, player]);
-
   if (!visible || !media) return null;
 
   const isVideo =
     media.type === "video" || media.mimeType?.startsWith("video/");
 
-  const togglePlayPause = () => {
-    if (player) {
-      if (isPlaying) {
-        player.pause();
-      } else {
-        player.play();
-      }
-    }
-    setShowControls(true);
-  };
-
-  const handleScreenTouch = () => {
-    setShowControls(!showControls);
-  };
-
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="fade"
       transparent={false}
       onRequestClose={onClose}
     >
       <View style={styles.modalViewerContainer}>
-        {showControls && (
-          <View style={styles.modalViewerHeader}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color="#fff" />
-            </TouchableOpacity>
-            <View style={styles.modalTitleContainer}>
-              <Text style={styles.modalViewerTitle} numberOfLines={1}>
-                {media.title || media.name || "Sans titre"}
-              </Text>
-              <Text style={styles.modalCounter}>
-                {currentIndex + 1}/{totalCount}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => onDelete(media.id)}
-              style={styles.deleteButton}
-            >
-              <Ionicons name="trash-bin" size={24} color="#FF6B6B" />
-            </TouchableOpacity>
+        {/* Header */}
+        <View style={styles.modalViewerHeader}>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.modalTitleContainer}>
+            <Text style={styles.modalViewerTitle} numberOfLines={1}>
+              {media.title || media.name || "Sans titre"}
+            </Text>
+            <Text style={styles.modalCounter}>
+              {currentIndex + 1}/{totalCount}
+            </Text>
           </View>
-        )}
+          <TouchableOpacity
+            onPress={() => onDelete(media.id)}
+            style={styles.deleteButton}
+          >
+            <Ionicons name="trash-bin" size={24} color="#FF6B6B" />
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={styles.modalContent}
-          activeOpacity={1}
-          onPress={handleScreenTouch}
-        >
+        {/* Contenu */}
+        <View style={styles.modalContent}>
           {isVideo ? (
-            <View style={styles.videoContainer}>
-              <VideoView
-                style={styles.fullscreenVideo}
-                player={player}
-                allowsFullscreen
-                allowsPictureInPicture
-              />
-              {!isPlaying && showControls && (
-                <TouchableOpacity
-                  style={styles.videoControls}
-                  onPress={togglePlayPause}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.playButton}>
-                    <Ionicons name="play" size={40} color="#fff" />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
+            <VideoPlayerView key={media.url} uri={baseURL + media.url} />
           ) : (
             <Image
               source={{ uri: baseURL + media.url }}
@@ -329,41 +286,39 @@ const MediaViewerModal = ({
               resizeMode="contain"
             />
           )}
-        </TouchableOpacity>
+        </View>
 
-        {showControls && (
-          <View style={styles.navigationContainer}>
-            <TouchableOpacity
-              onPress={() => onNavigate(-1)}
-              style={[
-                styles.navButton,
-                currentIndex === 0 && styles.navButtonDisabled,
-              ]}
-              disabled={currentIndex === 0}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color={currentIndex === 0 ? "#666" : "#fff"}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => onNavigate(1)}
-              style={[
-                styles.navButton,
-                currentIndex === totalCount - 1 && styles.navButtonDisabled,
-              ]}
-              disabled={currentIndex === totalCount - 1}
-            >
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={currentIndex === totalCount - 1 ? "#666" : "#fff"}
-              />
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Navigation */}
+        <View style={styles.navigationContainer}>
+          <TouchableOpacity
+            onPress={() => onNavigate(-1)}
+            style={[
+              styles.navButton,
+              currentIndex === 0 && styles.navButtonDisabled,
+            ]}
+            disabled={currentIndex === 0}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color={currentIndex === 0 ? "#666" : "#fff"}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => onNavigate(1)}
+            style={[
+              styles.navButton,
+              currentIndex === totalCount - 1 && styles.navButtonDisabled,
+            ]}
+            disabled={currentIndex === totalCount - 1}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={currentIndex === totalCount - 1 ? "#666" : "#fff"}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -519,14 +474,25 @@ const PlaylistContent = ({ onBack }) => {
   const [addMediaModalVisible, setAddMediaModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [isActive, setIsActive] = useState(false);
 
   // Nouveaux states pour les nouvelles fonctionnalités
   const [reorderModalVisible, setReorderModalVisible] = useState(false);
   const [tvAssignModalVisible, setTvAssignModalVisible] = useState(false);
   const [availableTvs, setAvailableTvs] = useState([]);
-  const [assignedTvs, setAssignedTvs] = useState<{ id: string; name: string }[]>([]);
-  const [selectedTv, setSelectedTv] = useState<{ id: string; name?: string } | null>(null);
+  const [assignedTvs, setAssignedTvs] = useState<
+    {
+      id: string;
+      televisionId: string;
+      name: string;
+      isActive: boolean;
+      priority: number;
+      position: number | null;
+    }[]
+  >([]);
+  const [selectedTv, setSelectedTv] = useState<{
+    id: string;
+    name?: string;
+  } | null>(null);
 
   // Dans les states existants, ajoutez :
   const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
@@ -556,7 +522,10 @@ const PlaylistContent = ({ onBack }) => {
         ),
       );
 
-      notifyAllTvs("tv-change-playlist", (tvId) => ({ tvId, newPlaylistId: playlistId }));
+      notifyAllTvs("tv-change-playlist", (tvId) => ({
+        tvId,
+        newPlaylistId: playlistId,
+      }));
 
       Alert.alert("Succès", "Durée mise à jour");
     } catch (error) {
@@ -708,8 +677,11 @@ const PlaylistContent = ({ onBack }) => {
 
   // Émet un event socket vers toutes les TVs assignées
   const notifyAllTvs = (event: string, payloadFn: (tvId: string) => object) => {
-    const tvList = assignedTvs.length > 0 ? assignedTvs : selectedTv ? [selectedTv] : [];
-    tvList.forEach((tv) => socket.emit(event, payloadFn(tv.id)));
+    const tvList =
+      assignedTvs.length > 0 ? assignedTvs : selectedTv ? [selectedTv] : [];
+    tvList.forEach((tv: any) =>
+      socket.emit(event, payloadFn(tv.televisionId ?? tv.id)),
+    );
   };
 
   useEffect(() => {
@@ -741,16 +713,31 @@ const PlaylistContent = ({ onBack }) => {
       setLoading(true);
       const playlistResponse = await api.get(`/playlists/${playlistId}`);
       const playlistData = playlistResponse.data;
-      console.log(
-        "🚀 ~ loadPlaylistContent ~ playlistData:",
-        JSON.stringify(playlistData),
-      );
 
       setPlaylist(playlistData);
-      setIsActive(playlistData.isActive);
       setSchedules(playlistData.schedules);
       setSelectedTv(playlistData.televisions[0]?.television || null);
-      setAssignedTvs(playlistData.televisions?.map((t: any) => t.television).filter(Boolean) || []);
+
+      const positionByTv = new Map(
+        (playlistData.queueItems || []).map((q: any) => [
+          q.televisionId,
+          q.position,
+        ]),
+      );
+      setAssignedTvs(
+        playlistData.televisions
+          ?.filter((t: any) => t.television)
+          .map((t: any) => ({
+            id: t.id,
+            televisionId: t.televisionId,
+            name: t.television.name,
+            isActive: t.isActive,
+            priority: t.priority,
+            position: positionByTv.has(t.televisionId)
+              ? positionByTv.get(t.televisionId)
+              : null,
+          })) || [],
+      );
 
       const extractedMedia =
         playlistData.items?.map((item, index) => ({
@@ -815,6 +802,7 @@ const PlaylistContent = ({ onBack }) => {
   };
 
   const openMediaViewer = (mediaItem, index) => {
+    console.log("🚀 ~ openMediaViewer ~ mediaItem:", mediaItem);
     setSelectedMedia(mediaItem);
     setCurrentIndex(index);
     setModalVisible(true);
@@ -851,7 +839,10 @@ const PlaylistContent = ({ onBack }) => {
       if (selectedMedia?.id === mediaId) {
         setModalVisible(false);
       }
-      notifyAllTvs("tv-change-playlist", (tvId) => ({ tvId, newPlaylistId: playlistId }));
+      notifyAllTvs("tv-change-playlist", (tvId) => ({
+        tvId,
+        newPlaylistId: playlistId,
+      }));
     } catch (error) {
       console.error("Erreur suppression média:", error);
       Alert.alert("Erreur", "Impossible de supprimer le média");
@@ -879,8 +870,11 @@ const PlaylistContent = ({ onBack }) => {
       if (request.status === 200) {
         setMedia(reorderedMedia);
 
-        if (isActive) {
-          notifyAllTvs("tv-change-playlist", (tvId) => ({ tvId, newPlaylistId: playlistId }));
+        if (assignedTvs.some((tv) => tv.isActive)) {
+          notifyAllTvs("tv-change-playlist", (tvId) => ({
+            tvId,
+            newPlaylistId: playlistId,
+          }));
         }
       }
     } catch (error) {
@@ -892,20 +886,24 @@ const PlaylistContent = ({ onBack }) => {
     }
   };
 
-
   // Gestion multi-assignation TVs
   const handleTvAssignConfirm = async (selectedIds: string[]) => {
-    const prevIds = new Set(assignedTvs.map((t) => t.id));
+    const prevIds = new Set(assignedTvs.map((t) => t.televisionId));
     const nextIds = new Set(selectedIds);
     const toAdd = selectedIds.filter((id) => !prevIds.has(id));
-    const toRemove = assignedTvs.map((t) => t.id).filter((id) => !nextIds.has(id));
+    const toRemove = assignedTvs
+      .map((t) => t.televisionId)
+      .filter((id) => !nextIds.has(id));
     try {
       await Promise.all([
         ...toAdd.map((tvId) =>
-          api.patch(`/playlists/${playlistId}/assign-tv`, { televisionId: tvId, playlistId })
+          api.patch(`/playlists/${playlistId}/assign-tv`, {
+            televisionId: tvId,
+            playlistId,
+          }),
         ),
         ...toRemove.map((tvId) =>
-          api.delete(`/playlists/${playlistId}/unassign-tv/${tvId}`)
+          api.delete(`/playlists/${playlistId}/unassign-tv/${tvId}`),
         ),
       ]);
       loadPlaylistContent();
@@ -923,7 +921,7 @@ const PlaylistContent = ({ onBack }) => {
         onPress: async () => {
           try {
             await api.delete(`/playlists/${playlistId}/unassign-tv/${tvId}`);
-            setAssignedTvs((prev) => prev.filter((t) => t.id !== tvId));
+            setAssignedTvs((prev) => prev.filter((t) => t.televisionId !== tvId));
             if (selectedTv?.id === tvId) setSelectedTv(null);
           } catch {
             Alert.alert("Erreur", "Impossible de désassigner la TV");
@@ -994,8 +992,11 @@ const PlaylistContent = ({ onBack }) => {
         setAddMediaModalVisible(false);
         setSelectedFiles([]);
 
-        if (isActive) {
-          notifyAllTvs("tv-change-playlist", (tvId) => ({ tvId, newPlaylistId: playlistId }));
+        if (assignedTvs.some((tv) => tv.isActive)) {
+          notifyAllTvs("tv-change-playlist", (tvId) => ({
+            tvId,
+            newPlaylistId: playlistId,
+          }));
         }
 
         loadPlaylistContent();
@@ -1010,33 +1011,42 @@ const PlaylistContent = ({ onBack }) => {
     }
   };
 
-  const togglePlaylistStatus = async () => {
-    if (assignedTvs.length === 0) {
-      Alert.alert("Erreur", "Assignez d'abord une TV à cette playlist");
-      return;
-    }
+  // Active/désactive la playlist pour UNE TV donnée — plusieurs TVs peuvent
+  // désormais être actives indépendamment (chacune avec sa propre position
+  // dans sa file d'attente, gérée côté serveur).
+  const toggleTvActive = async (tv: {
+    televisionId: string;
+    isActive: boolean;
+  }) => {
+    const newStatus = !tv.isActive;
+
+    setAssignedTvs((prev) =>
+      prev.map((t) =>
+        t.televisionId === tv.televisionId ? { ...t, isActive: newStatus } : t,
+      ),
+    );
 
     try {
-      const newStatus = !isActive;
-      const contextTv = selectedTv ?? assignedTvs[0];
-
       await api.patch(
-        `/playlists/${playlistId}/televisionId/${contextTv.id}/status`,
+        `/playlists/${playlistId}/televisionId/${tv.televisionId}/status`,
         { isActive: newStatus },
       );
-      setIsActive(newStatus);
 
-      // Notifier toutes les TVs assignées
-      assignedTvs.forEach((tv) => {
-        socket.emit("tv-change-playlist", {
-          tvId: tv.id,
-          newPlaylistId: playlistId,
-        });
-      });
+      // Pas de "tv-change-playlist" ici : le serveur notifie déjà la TV via
+      // "tv-queue-updated" (elle refait tv-get-playlist-queue elle-même).
+      // Émettre "tv-change-playlist" forcerait un changement d'affichage
+      // immédiat et écraserait la rotation de la file en cours.
+      loadPlaylistContent();
     } catch (error) {
       console.error("Erreur mise à jour statut:", error);
       Alert.alert("Erreur", "Impossible de mettre à jour le statut");
-      setIsActive(!isActive);
+      setAssignedTvs((prev) =>
+        prev.map((t) =>
+          t.televisionId === tv.televisionId
+            ? { ...t, isActive: tv.isActive }
+            : t,
+        ),
+      );
     }
   };
 
@@ -1223,8 +1233,8 @@ const PlaylistContent = ({ onBack }) => {
                 {assignedTvs.length === 0
                   ? "Aucune TV"
                   : assignedTvs.length === 1
-                  ? assignedTvs[0].name
-                  : `${assignedTvs.length} TVs`}
+                    ? assignedTvs[0].name
+                    : `${assignedTvs.length} TVs`}
               </Text>
               <Ionicons name="chevron-down" size={16} color="#00E5FF" />
             </TouchableOpacity>
@@ -1271,37 +1281,62 @@ const PlaylistContent = ({ onBack }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Toggle activation playlist */}
-        <View style={styles.activationContainer}>
-          <Text style={styles.activationLabel}>
-            Playlist {isActive ? "active" : "inactive"}
-          </Text>
-          <Switch
-            value={isActive}
-            onValueChange={togglePlaylistStatus}
-            trackColor={{ false: "#767577", true: "#00E5FF" }}
-            thumbColor={isActive ? "#fff" : "#f4f3f4"}
-            disabled={assignedTvs.length === 0}
-          />
-        </View>
-
-        {/* TVs assignées */}
-        <View style={styles.tvChipsRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {assignedTvs.map((tv) => (
-              <View key={tv.id} style={styles.tvChip}>
-                <Ionicons name="tv" size={13} color="#00E5FF" />
-                <Text style={styles.tvChipText}>{tv.name}</Text>
-                <TouchableOpacity onPress={() => handleUnassignTv(tv.id)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Ionicons name="close-circle" size={15} color="rgba(255,255,255,0.5)" />
-                </TouchableOpacity>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.tvChipAdd} onPress={() => setTvAssignModalVisible(true)}>
+        {/* TVs assignées — activation et position dans la file, par TV */}
+        <View style={styles.tvAssignSection}>
+          {assignedTvs.length === 0 ? (
+            <TouchableOpacity
+              style={styles.tvChipAdd}
+              onPress={() => setTvAssignModalVisible(true)}
+            >
               <Ionicons name="add" size={15} color="#00E5FF" />
-              <Text style={styles.tvChipAddText}>Gérer les TVs</Text>
+              <Text style={styles.tvChipAddText}>Assigner une TV</Text>
             </TouchableOpacity>
-          </ScrollView>
+          ) : (
+            <>
+              {assignedTvs.map((tv) => (
+                <View key={tv.id} style={styles.tvAssignRow}>
+                  <View style={styles.tvAssignInfo}>
+                    <Ionicons name="tv" size={15} color="#00E5FF" />
+                    <Text style={styles.tvAssignName} numberOfLines={1}>
+                      {tv.name}
+                    </Text>
+                    {tv.isActive && tv.position !== null && (
+                      <View style={styles.tvAssignPositionBadge}>
+                        <Text style={styles.tvAssignPositionText}>
+                          #{tv.position + 1}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.tvAssignActions}>
+                    <Switch
+                      value={tv.isActive}
+                      onValueChange={() => toggleTvActive(tv)}
+                      trackColor={{ false: "#767577", true: "#00E5FF" }}
+                      thumbColor={tv.isActive ? "#fff" : "#f4f3f4"}
+                    />
+                    <TouchableOpacity
+                      onPress={() => handleUnassignTv(tv.televisionId)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={17}
+                        color="rgba(255,255,255,0.5)"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+              <TouchableOpacity
+                style={styles.tvChipAdd}
+                onPress={() => setTvAssignModalVisible(true)}
+              >
+                <Ionicons name="add" size={15} color="#00E5FF" />
+                <Text style={styles.tvChipAddText}>Gérer les TVs</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </LinearGradient>
 
@@ -1347,7 +1382,7 @@ const PlaylistContent = ({ onBack }) => {
         onClose={() => setTvAssignModalVisible(false)}
         tvs={availableTvs}
         multiSelect
-        assignedTvIds={assignedTvs.map((t) => t.id)}
+        assignedTvIds={assignedTvs.map((t) => t.televisionId)}
         onConfirm={handleTvAssignConfirm}
       />
 
@@ -1598,23 +1633,52 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  activationContainer: {
+  tvAssignSection: {
+    marginHorizontal: 20,
+    marginTop: 6,
+    gap: 8,
+  },
+  tvAssignRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginHorizontal: 20,
-    marginTop: 6,
     backgroundColor: C.white05,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  activationLabel: {
-    fontSize: 14,
-    color: C.white80,
+  tvAssignInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    marginRight: 10,
+  },
+  tvAssignName: {
+    fontSize: 13,
     fontWeight: "600",
+    color: C.white,
+    flexShrink: 1,
+  },
+  tvAssignPositionBadge: {
+    backgroundColor: "rgba(0,229,255,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(0,229,255,0.30)",
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  tvAssignPositionText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#00E5FF",
+  },
+  tvAssignActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -2491,27 +2555,6 @@ const styles = StyleSheet.create({
   },
 
   // TV chips
-  tvChipsRow: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    paddingTop: 4,
-  },
-  tvChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(0,229,255,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(0,229,255,0.30)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  tvChipText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#fff",
-  },
   tvChipAdd: {
     flexDirection: "row",
     alignItems: "center",
