@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import React, { useState, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,15 +13,12 @@ import {
   FlatList,
 } from "react-native";
 import api from "@/scripts/fetch.api";
-import {
-  Ionicons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import EditTvModal from "./EditModal";
-import { dissociatedUser } from "@/requests/tv.requests";
+import { dissociatedUser, getMyTVs } from "@/requests/tv.requests";
 import { socket } from "@/scripts/socket.io";
 
 // ─── Palette (same as HomeScreen) ────────────────────────────────────────────
@@ -56,10 +53,28 @@ const C = {
   border: "rgba(255,255,255,0.09)",
 };
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; dim: string; border: string }> = {
-  ONLINE: { label: "En ligne", color: C.success, dim: C.successDim, border: C.successBorder },
-  PLAYING: { label: "En lecture", color: C.warning, dim: C.warningDim, border: C.warningBorder },
-  OFFLINE: { label: "Hors ligne", color: C.error, dim: C.errorDim, border: C.errorBorder },
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; dim: string; border: string }
+> = {
+  ONLINE: {
+    label: "En ligne",
+    color: C.success,
+    dim: C.successDim,
+    border: C.successBorder,
+  },
+  PLAYING: {
+    label: "En lecture",
+    color: C.warning,
+    dim: C.warningDim,
+    border: C.warningBorder,
+  },
+  OFFLINE: {
+    label: "Hors ligne",
+    color: C.error,
+    dim: C.errorDim,
+    border: C.errorBorder,
+  },
 };
 
 // ─── TimePickerField ─────────────────────────────────────────────────────────
@@ -73,7 +88,13 @@ interface TimePickerFieldProps {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-const TimePickerField: React.FC<TimePickerFieldProps> = ({ label, icon, iconColor, value, onChange }) => {
+const TimePickerField: React.FC<TimePickerFieldProps> = ({
+  label,
+  icon,
+  iconColor,
+  value,
+  onChange,
+}) => {
   const [editing, setEditing] = useState(false);
   const [raw, setRaw] = useState("");
   const inputRef = useRef<TextInput>(null);
@@ -110,13 +131,18 @@ const TimePickerField: React.FC<TimePickerFieldProps> = ({ label, icon, iconColo
     onChange(
       field === "h"
         ? { ...value, h: (value.h + delta + 24) % 24 }
-        : { ...value, m: (value.m + delta + 60) % 60 }
+        : { ...value, m: (value.m + delta + 60) % 60 },
     );
   };
 
   // Preview while typing
   const previewH = raw.length >= 2 ? raw.slice(0, 2) : raw.padEnd(2, "_");
-  const previewM = raw.length >= 4 ? raw.slice(2, 4) : raw.length >= 2 ? raw.slice(2).padEnd(2, "_") : "__";
+  const previewM =
+    raw.length >= 4
+      ? raw.slice(2, 4)
+      : raw.length >= 2
+        ? raw.slice(2).padEnd(2, "_")
+        : "__";
 
   return (
     <View style={tp.root}>
@@ -127,12 +153,20 @@ const TimePickerField: React.FC<TimePickerFieldProps> = ({ label, icon, iconColo
       </View>
 
       {/* +1h */}
-      <TouchableOpacity style={tp.quickBtn} onPress={() => shift("h", 1)} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={tp.quickBtn}
+        onPress={() => shift("h", 1)}
+        activeOpacity={0.7}
+      >
         <Ionicons name="chevron-up" size={18} color={C.white60} />
       </TouchableOpacity>
 
       {/* Time display / input */}
-      <TouchableOpacity style={tp.timeDisplay} onPress={openEdit} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={tp.timeDisplay}
+        onPress={openEdit}
+        activeOpacity={0.8}
+      >
         {editing ? (
           <TextInput
             ref={inputRef}
@@ -145,29 +179,42 @@ const TimePickerField: React.FC<TimePickerFieldProps> = ({ label, icon, iconColo
             caretHidden
           />
         ) : null}
-        <Text style={tp.digits}>
-          {editing ? previewH : pad2(value.h)}
-        </Text>
+        <Text style={tp.digits}>{editing ? previewH : pad2(value.h)}</Text>
         <Text style={tp.colon}>:</Text>
-        <Text style={tp.digits}>
-          {editing ? previewM : pad2(value.m)}
-        </Text>
+        <Text style={tp.digits}>{editing ? previewM : pad2(value.m)}</Text>
         {!editing && (
-          <Ionicons name="pencil-outline" size={12} color={C.white40} style={{ marginLeft: 6, marginTop: 4 }} />
+          <Ionicons
+            name="pencil-outline"
+            size={12}
+            color={C.white40}
+            style={{ marginLeft: 6, marginTop: 4 }}
+          />
         )}
       </TouchableOpacity>
 
       {/* -1h */}
-      <TouchableOpacity style={tp.quickBtn} onPress={() => shift("h", -1)} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={tp.quickBtn}
+        onPress={() => shift("h", -1)}
+        activeOpacity={0.7}
+      >
         <Ionicons name="chevron-down" size={18} color={C.white60} />
       </TouchableOpacity>
 
       {/* ±15 min row */}
       <View style={tp.minRow}>
-        <TouchableOpacity style={tp.minBtn} onPress={() => shift("m", -15)} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={tp.minBtn}
+          onPress={() => shift("m", -15)}
+          activeOpacity={0.7}
+        >
           <Text style={tp.minBtnText}>−15'</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={tp.minBtn} onPress={() => shift("m", 15)} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={tp.minBtn}
+          onPress={() => shift("m", 15)}
+          activeOpacity={0.7}
+        >
           <Text style={tp.minBtnText}>+15'</Text>
         </TouchableOpacity>
       </View>
@@ -178,7 +225,12 @@ const TimePickerField: React.FC<TimePickerFieldProps> = ({ label, icon, iconColo
 const tp = StyleSheet.create({
   root: { alignItems: "center", gap: 6, flex: 1 },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  label: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   quickBtn: {
     width: "100%",
     alignItems: "center",
@@ -230,7 +282,11 @@ const tp = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
-  minBtnText: { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.55)" },
+  minBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.55)",
+  },
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,6 +295,21 @@ interface TvDetailsProps {
   data: any;
 }
 
+/**
+ * "HH:mm" → { h, m }, avec repli si la valeur est absente ou illisible.
+ * Partagé par l'initialisation et la resynchronisation, pour que les deux
+ * interprètent le champ de la même façon.
+ */
+const parseHhMm = (
+  value: string | null | undefined,
+  fallback: { h: number; m: number },
+): { h: number; m: number } => {
+  if (!value) return fallback;
+  const [h, m] = value.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return fallback;
+  return { h, m };
+};
+
 const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
   const { item } = useLocalSearchParams();
   const data = item ? JSON.parse(item as string) : null;
@@ -246,7 +317,9 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [currentData, setCurrentData] = useState(data);
   const [tvStatus, setTvStatus] = useState<string>(data?.status ?? "OFFLINE");
-  const [assignedPlaylists, setAssignedPlaylists] = useState<any[]>(data?.playlists ?? []);
+  const [assignedPlaylists, setAssignedPlaylists] = useState<any[]>(
+    data?.playlists ?? [],
+  );
   const [allPlaylists, setAllPlaylists] = useState<any[]>([]);
   const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
 
@@ -255,7 +328,7 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
     Record<string, { queueItemId: string; position: number }>
   >({});
 
-  const loadQueue = async () => {
+  const loadQueue = useCallback(async () => {
     if (!data?.id) return;
     try {
       const res = await api.get(`/tv-queue/tv/${data.id}`);
@@ -267,11 +340,52 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
     } catch {
       // Silencieux — l'écran reste utilisable sans ordre persisté
     }
-  };
+  }, [data?.id]);
 
-  useEffect(() => {
-    loadQueue();
-  }, []);
+  /**
+   * Resynchronise l'écran depuis le serveur.
+   *
+   * Les données affichées proviennent d'un paramètre de navigation sérialisé,
+   * figé au moment où l'on a ouvert la page : statut, playlists assignées et
+   * réglages y restaient périmés. On repasse par `getMyTVs`, la source qui a
+   * servi à construire ce paramètre, pour garantir une forme identique.
+   */
+  const refreshTv = useCallback(async () => {
+    if (!data?.id) return;
+    try {
+      const tvs = await getMyTVs();
+      const fresh = Array.isArray(tvs)
+        ? tvs.find((tv: any) => tv.id === data.id)
+        : null;
+      if (!fresh) return;
+
+      setCurrentData(fresh);
+      setTvStatus(fresh.status ?? "OFFLINE");
+      setAssignedPlaylists(fresh.playlists ?? []);
+
+      // Réglages d'alimentation : leurs états sont initialisés par un
+      // `useState(...)`, dont l'initialiseur ne s'exécute QU'AU MONTAGE. Sans
+      // cette resynchronisation explicite, ils gardaient les valeurs du
+      // paramètre de navigation — y compris après un enregistrement réussi ou
+      // une modification faite depuis le dashboard.
+      setPowerScheduleEnabled(!!(fresh.powerOnTime || fresh.powerOffTime));
+      setPowerOnTime(parseHhMm(fresh.powerOnTime, { h: 8, m: 0 }));
+      setPowerOffTime(parseHhMm(fresh.powerOffTime, { h: 22, m: 0 }));
+    } catch {
+      // Silencieux : les données de navigation restent affichées, mieux vaut
+      // un écran légèrement daté qu'une alerte à chaque retour.
+    }
+  }, [data?.id]);
+
+  // À chaque prise de focus, pas seulement au montage : expo-router garde
+  // l'écran dans la pile, donc revenir dessus après avoir modifié une playlist
+  // ou l'ordre de diffusion réaffichait l'état d'origine.
+  useFocusEffect(
+    useCallback(() => {
+      refreshTv();
+      loadQueue();
+    }, [refreshTv, loadQueue]),
+  );
 
   // Playlists assignées, triées par position dans la file (les non-actives/
   // pas-encore-en-file restent à la suite, dans leur ordre d'arrivée)
@@ -302,7 +416,11 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
       const next = { ...prev };
       items.forEach((item) => {
         const pl = reordered.find((p) => p.queueItemId === item.id);
-        if (pl) next[pl.playlist.id] = { queueItemId: item.id, position: item.position };
+        if (pl)
+          next[pl.playlist.id] = {
+            queueItemId: item.id,
+            position: item.position,
+          };
       });
       return next;
     });
@@ -320,27 +438,22 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
     if (toIndex < 0 || toIndex >= queuedCount) return;
 
     const reordered = [...orderedPlaylists];
-    [reordered[index], reordered[toIndex]] = [reordered[toIndex], reordered[index]];
+    [reordered[index], reordered[toIndex]] = [
+      reordered[toIndex],
+      reordered[index],
+    ];
     persistQueueOrder(reordered);
   };
 
   const [powerScheduleEnabled, setPowerScheduleEnabled] = useState(
-    !!(data?.powerOnTime || data?.powerOffTime)
+    !!(data?.powerOnTime || data?.powerOffTime),
   );
-  const [powerOnTime, setPowerOnTime] = useState<{ h: number; m: number }>(() => {
-    if (data?.powerOnTime) {
-      const [h, m] = data.powerOnTime.split(":").map(Number);
-      return { h, m };
-    }
-    return { h: 8, m: 0 };
-  });
-  const [powerOffTime, setPowerOffTime] = useState<{ h: number; m: number }>(() => {
-    if (data?.powerOffTime) {
-      const [h, m] = data.powerOffTime.split(":").map(Number);
-      return { h, m };
-    }
-    return { h: 22, m: 0 };
-  });
+  const [powerOnTime, setPowerOnTime] = useState<{ h: number; m: number }>(() =>
+    parseHhMm(data?.powerOnTime, { h: 8, m: 0 }),
+  );
+  const [powerOffTime, setPowerOffTime] = useState<{ h: number; m: number }>(
+    () => parseHhMm(data?.powerOffTime, { h: 22, m: 0 }),
+  );
   const [savingPower, setSavingPower] = useState(false);
 
   const savePowerSchedule = async () => {
@@ -353,6 +466,10 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
           }
         : { powerOnTime: null, powerOffTime: null };
       await api.patch(`/televisions/${data.id}`, payload);
+      // Relit depuis le serveur : sans ça, `currentData` garderait les anciens
+      // horaires jusqu'au prochain retour sur l'écran, et le reste de la page
+      // afficherait autre chose que ce qui vient d'être enregistré.
+      await refreshTv();
       Alert.alert("✅", "Programmation enregistrée");
     } catch {
       Alert.alert("Erreur", "Impossible d'enregistrer la programmation");
@@ -391,9 +508,12 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
 
   const getResolutionIcon = (resolution: string) => {
     switch (resolution) {
-      case "HD_1080P": return "high-definition";
-      case "4K": return "video-4k";
-      default: return "television";
+      case "HD_1080P":
+        return "high-definition";
+      case "4K":
+        return "video-4k";
+      default:
+        return "television";
     }
   };
 
@@ -434,7 +554,12 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
       );
       setAssignedPlaylists((prev) => [
         ...prev,
-        { playlist, priority: 5, isActive: true, assignedAt: new Date().toISOString() },
+        {
+          playlist,
+          priority: 5,
+          isActive: true,
+          assignedAt: new Date().toISOString(),
+        },
       ]);
       loadQueue();
       setPlaylistModalVisible(false);
@@ -451,8 +576,12 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            await api.delete(`/playlists/${pl.playlist.id}/unassign-tv/${data.id}`);
-            setAssignedPlaylists((prev) => prev.filter((p) => p.playlist.id !== pl.playlist.id));
+            await api.delete(
+              `/playlists/${pl.playlist.id}/unassign-tv/${data.id}`,
+            );
+            setAssignedPlaylists((prev) =>
+              prev.filter((p) => p.playlist.id !== pl.playlist.id),
+            );
             setQueueMap((prev) => {
               const next = { ...prev };
               delete next[pl.playlist.id];
@@ -490,7 +619,9 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
               <Text style={s.headerTitle}>{data.name}</Text>
               <View style={s.statusRow}>
                 <View style={[s.statusDot, { backgroundColor: cfg.color }]} />
-                <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+                <Text style={[s.statusText, { color: cfg.color }]}>
+                  {cfg.label}
+                </Text>
                 <Text style={s.codeConnection}>#{data.codeConnection}</Text>
               </View>
             </View>
@@ -500,8 +631,10 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                 style={[
                   s.editButton,
                   {
-                    backgroundColor: tvStatus === "OFFLINE" ? C.successDim : C.errorDim,
-                    borderColor: tvStatus === "OFFLINE" ? C.successBorder : C.errorBorder,
+                    backgroundColor:
+                      tvStatus === "OFFLINE" ? C.successDim : C.errorDim,
+                    borderColor:
+                      tvStatus === "OFFLINE" ? C.successBorder : C.errorBorder,
                   },
                 ]}
                 onPress={handlePowerToggle}
@@ -536,7 +669,15 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
               style={[s.card, { borderColor: C.accentBorder }]}
             >
               <View style={s.cardHeader}>
-                <View style={[s.cardIconWrap, { backgroundColor: C.accentDim, borderColor: C.accentBorder }]}>
+                <View
+                  style={[
+                    s.cardIconWrap,
+                    {
+                      backgroundColor: C.accentDim,
+                      borderColor: C.accentBorder,
+                    },
+                  ]}
+                >
                   <Ionicons name="tv-outline" size={18} color={C.accent} />
                 </View>
                 <Text style={s.cardTitle}>Informations générales</Text>
@@ -545,7 +686,11 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
               <View style={s.infoGrid}>
                 {data.deviceId ? (
                   <View style={s.infoItem}>
-                    <Ionicons name="finger-print-outline" size={18} color={C.white40} />
+                    <Ionicons
+                      name="finger-print-outline"
+                      size={18}
+                      color={C.white40}
+                    />
                     <View style={s.infoContent}>
                       <Text style={s.infoLabel}>Device ID</Text>
                       <Text style={s.infoValue}>{data.deviceId}</Text>
@@ -555,7 +700,11 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
 
                 {data.location ? (
                   <View style={s.infoItem}>
-                    <Ionicons name="location-outline" size={18} color={C.white40} />
+                    <Ionicons
+                      name="location-outline"
+                      size={18}
+                      color={C.white40}
+                    />
                     <View style={s.infoContent}>
                       <Text style={s.infoLabel}>Localisation</Text>
                       <Text style={s.infoValue}>{data.location}</Text>
@@ -582,7 +731,9 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                     />
                     <View style={s.infoContent}>
                       <Text style={s.infoLabel}>Résolution</Text>
-                      <Text style={s.infoValue}>{data.resolution.replace("_", " ")}</Text>
+                      <Text style={s.infoValue}>
+                        {data.resolution.replace("_", " ")}
+                      </Text>
                     </View>
                   </View>
                 ) : null}
@@ -590,7 +741,11 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                 {data.orientation ? (
                   <View style={s.infoItem}>
                     <MaterialCommunityIcons
-                      name={data.orientation === "LANDSCAPE" ? "tablet" : ("tablet-ipad" as any)}
+                      name={
+                        data.orientation === "LANDSCAPE"
+                          ? "tablet"
+                          : ("tablet-ipad" as any)
+                      }
                       size={18}
                       color={C.white40}
                     />
@@ -611,8 +766,22 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
               style={[s.card, { borderColor: C.purpleBorder }]}
             >
               <View style={[s.cardHeader, { justifyContent: "space-between" }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <View style={[s.cardIconWrap, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <View
+                    style={[
+                      s.cardIconWrap,
+                      {
+                        backgroundColor: C.purpleDim,
+                        borderColor: C.purpleBorder,
+                      },
+                    ]}
+                  >
                     <Ionicons name="list-outline" size={18} color={C.purple} />
                   </View>
                   <Text style={s.cardTitle}>
@@ -620,7 +789,13 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                   </Text>
                 </View>
                 <TouchableOpacity
-                  style={[s.cardIconWrap, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}
+                  style={[
+                    s.cardIconWrap,
+                    {
+                      backgroundColor: C.purpleDim,
+                      borderColor: C.purpleBorder,
+                    },
+                  ]}
                   onPress={openPlaylistModal}
                   activeOpacity={0.7}
                 >
@@ -629,8 +804,18 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
               </View>
 
               {assignedPlaylists.length === 0 ? (
-                <TouchableOpacity onPress={openPlaylistModal} activeOpacity={0.7}>
-                  <Text style={{ color: C.white40, fontSize: 13, textAlign: "center", paddingVertical: 8 }}>
+                <TouchableOpacity
+                  onPress={openPlaylistModal}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={{
+                      color: C.white40,
+                      fontSize: 13,
+                      textAlign: "center",
+                      paddingVertical: 8,
+                    }}
+                  >
                     Aucune playlist — Appuyer pour assigner
                   </Text>
                 </TouchableOpacity>
@@ -639,62 +824,164 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                   {orderedPlaylists.map((pl: any, index: number) => (
                     <TouchableOpacity
                       key={pl.id ?? pl.playlist.id}
-                      onPress={() => router.navigate(`/home/playlists/view/${pl.playlist.id}`)}
+                      onPress={() =>
+                        router.navigate(
+                          `/home/playlists/view/${pl.playlist.id}`,
+                        )
+                      }
                       activeOpacity={0.75}
                     >
                       <LinearGradient
-                        colors={["rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)"]}
+                        colors={[
+                          "rgba(255,255,255,0.05)",
+                          "rgba(255,255,255,0.02)",
+                        ]}
                         style={[s.playlistItem, { borderColor: C.border }]}
                       >
-                        <View style={[s.playlistTopBar, { backgroundColor: pl.isActive ? C.success : C.error }]} />
+                        <View
+                          style={[
+                            s.playlistTopBar,
+                            {
+                              backgroundColor: pl.isActive
+                                ? C.success
+                                : C.error,
+                            },
+                          ]}
+                        />
                         <View style={s.playlistBody}>
                           <View style={s.playlistHeaderRow}>
                             <View style={{ flex: 1 }}>
-                              <Text style={s.playlistName}>{pl.playlist.name}</Text>
-                              {pl.playlist.description ? (
-                                <Text style={s.playlistDesc} numberOfLines={1}>{pl.playlist.description}</Text>
-                              ) : null}
+                              <Text style={s.playlistName}>
+                                {pl.playlist.name}
+                              </Text>
                             </View>
                             <View style={s.playlistRight}>
                               {pl.queueItemId ? (
-                                <View style={[s.priorityBadge, { backgroundColor: C.purpleDim, borderColor: C.purpleBorder }]}>
-                                  <Text style={[s.priorityText, { color: C.purple }]}>#{pl.queuePosition + 1}</Text>
+                                <View
+                                  style={[
+                                    s.priorityBadge,
+                                    {
+                                      backgroundColor: C.purpleDim,
+                                      borderColor: C.purpleBorder,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      s.priorityText,
+                                      { color: C.purple },
+                                    ]}
+                                  >
+                                    #{pl.queuePosition + 1}
+                                  </Text>
                                 </View>
                               ) : null}
-                              <View style={[s.priorityBadge, { backgroundColor: getPriorityColor(pl.priority) + "22", borderColor: getPriorityColor(pl.priority) + "55" }]}>
-                                <Text style={[s.priorityText, { color: getPriorityColor(pl.priority) }]}>P{pl.priority}</Text>
-                              </View>
+
                               <TouchableOpacity
-                                onPress={(e) => { e.stopPropagation(); handleUnassignPlaylist(pl); }}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  handleUnassignPlaylist(pl);
+                                }}
+                                hitSlop={{
+                                  top: 8,
+                                  bottom: 8,
+                                  left: 8,
+                                  right: 8,
+                                }}
                               >
-                                <Ionicons name="close-circle-outline" size={18} color={C.error} />
+                                <Ionicons
+                                  name="close-circle-outline"
+                                  size={18}
+                                  color={C.error}
+                                />
                               </TouchableOpacity>
                             </View>
                           </View>
                           <View style={s.playlistFooter}>
-                            <View style={[s.statusPill, { backgroundColor: pl.isActive ? C.successDim : C.errorDim, borderColor: pl.isActive ? C.successBorder : C.errorBorder }]}>
-                              <View style={[s.statusDot, { backgroundColor: pl.isActive ? C.success : C.error }]} />
-                              <Text style={[s.statusPillText, { color: pl.isActive ? C.success : C.error }]}>
+                            <View
+                              style={[
+                                s.statusPill,
+                                {
+                                  backgroundColor: pl.isActive
+                                    ? C.successDim
+                                    : C.errorDim,
+                                  borderColor: pl.isActive
+                                    ? C.successBorder
+                                    : C.errorBorder,
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  s.statusDot,
+                                  {
+                                    backgroundColor: pl.isActive
+                                      ? C.success
+                                      : C.error,
+                                  },
+                                ]}
+                              />
+                              <Text
+                                style={[
+                                  s.statusPillText,
+                                  { color: pl.isActive ? C.success : C.error },
+                                ]}
+                              >
                                 {pl.isActive ? "Active" : "Inactive"}
                               </Text>
                             </View>
-                            <Text style={s.assignedDate}>{formatDate(pl.assignedAt)}</Text>
+                            <Text style={s.assignedDate}>
+                              {formatDate(pl.assignedAt)}
+                            </Text>
                             {pl.queueItemId ? (
-                              <View style={{ flexDirection: "row", gap: 4, marginLeft: 8 }}>
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  gap: 4,
+                                  marginLeft: 8,
+                                }}
+                              >
                                 <TouchableOpacity
-                                  onPress={(e) => { e.stopPropagation(); moveQueueItem(index, "up"); }}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    moveQueueItem(index, "up");
+                                  }}
                                   disabled={index === 0}
-                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                  hitSlop={{
+                                    top: 6,
+                                    bottom: 6,
+                                    left: 6,
+                                    right: 6,
+                                  }}
                                 >
-                                  <Ionicons name="chevron-up-circle-outline" size={20} color={index === 0 ? C.white20 : C.purple} />
+                                  <Ionicons
+                                    name="chevron-up-circle-outline"
+                                    size={20}
+                                    color={index === 0 ? C.white20 : C.purple}
+                                  />
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                  onPress={(e) => { e.stopPropagation(); moveQueueItem(index, "down"); }}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    moveQueueItem(index, "down");
+                                  }}
                                   disabled={index === queuedCount - 1}
-                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                  hitSlop={{
+                                    top: 6,
+                                    bottom: 6,
+                                    left: 6,
+                                    right: 6,
+                                  }}
                                 >
-                                  <Ionicons name="chevron-down-circle-outline" size={20} color={index === queuedCount - 1 ? C.white20 : C.purple} />
+                                  <Ionicons
+                                    name="chevron-down-circle-outline"
+                                    size={20}
+                                    color={
+                                      index === queuedCount - 1
+                                        ? C.white20
+                                        : C.purple
+                                    }
+                                  />
                                 </TouchableOpacity>
                               </View>
                             ) : null}
@@ -709,35 +996,120 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
           </View>
 
           {/* ── Modal assignation playlist ── */}
-          <Modal visible={playlistModalVisible} animationType="slide" transparent>
-            <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}>
-              <View style={{ backgroundColor: "#0F1642", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "70%", padding: 20, gap: 16 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ fontSize: 17, fontWeight: "800", color: C.white }}>Assigner une playlist</Text>
-                  <TouchableOpacity onPress={() => setPlaylistModalVisible(false)}>
+          <Modal
+            visible={playlistModalVisible}
+            animationType="slide"
+            transparent
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.55)",
+                justifyContent: "flex-end",
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#0F1642",
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                  maxHeight: "70%",
+                  padding: 20,
+                  gap: 16,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text
+                    style={{ fontSize: 17, fontWeight: "800", color: C.white }}
+                  >
+                    Assigner une playlist
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setPlaylistModalVisible(false)}
+                  >
                     <Ionicons name="close" size={22} color={C.white60} />
                   </TouchableOpacity>
                 </View>
                 <FlatList
-                  data={allPlaylists.filter((pl) => !assignedPlaylists.find((a) => a.playlist?.id === pl.id))}
+                  data={allPlaylists.filter(
+                    (pl) =>
+                      !assignedPlaylists.find((a) => a.playlist?.id === pl.id),
+                  )}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       onPress={() => handleAssignPlaylist(item)}
                       activeOpacity={0.75}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingVertical: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: C.border,
+                      }}
                     >
-                      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.purpleDim, borderWidth: 1, borderColor: C.purpleBorder, alignItems: "center", justifyContent: "center" }}>
-                        <Ionicons name="list-outline" size={16} color={C.purple} />
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: C.purpleDim,
+                          borderWidth: 1,
+                          borderColor: C.purpleBorder,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons
+                          name="list-outline"
+                          size={16}
+                          color={C.purple}
+                        />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontWeight: "700", color: C.white }}>{item.name}</Text>
-                        {item.description ? <Text style={{ fontSize: 12, color: C.white40 }} numberOfLines={1}>{item.description}</Text> : null}
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "700",
+                            color: C.white,
+                          }}
+                        >
+                          {item.name}
+                        </Text>
+                        {item.description ? (
+                          <Text
+                            style={{ fontSize: 12, color: C.white40 }}
+                            numberOfLines={1}
+                          >
+                            {item.description}
+                          </Text>
+                        ) : null}
                       </View>
-                      <Ionicons name="add-circle-outline" size={20} color={C.purple} />
+                      <Ionicons
+                        name="add-circle-outline"
+                        size={20}
+                        color={C.purple}
+                      />
                     </TouchableOpacity>
                   )}
-                  ListEmptyComponent={<Text style={{ color: C.white40, textAlign: "center", paddingVertical: 20 }}>Toutes les playlists sont déjà assignées</Text>}
+                  ListEmptyComponent={
+                    <Text
+                      style={{
+                        color: C.white40,
+                        textAlign: "center",
+                        paddingVertical: 20,
+                      }}
+                    >
+                      Toutes les playlists sont déjà assignées
+                    </Text>
+                  }
                 />
               </View>
             </View>
@@ -751,14 +1123,30 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
             >
               {/* Header + toggle */}
               <View style={[s.cardHeader, { justifyContent: "space-between" }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <View style={[s.cardIconWrap, { backgroundColor: C.warningDim, borderColor: C.warningBorder }]}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <View
+                    style={[
+                      s.cardIconWrap,
+                      {
+                        backgroundColor: C.warningDim,
+                        borderColor: C.warningBorder,
+                      },
+                    ]}
+                  >
                     <Ionicons name="time-outline" size={18} color={C.warning} />
                   </View>
                   <View>
                     <Text style={s.cardTitle}>Alimentation programmée</Text>
                     {powerScheduleEnabled && (
-                      <Text style={{ fontSize: 11, color: C.white40, marginTop: 2 }}>
+                      <Text
+                        style={{ fontSize: 11, color: C.white40, marginTop: 2 }}
+                      >
                         {`${pad2(powerOnTime.h)}:${pad2(powerOnTime.m)} → ${pad2(powerOffTime.h)}:${pad2(powerOffTime.m)}`}
                       </Text>
                     )}
@@ -797,9 +1185,19 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                     onPress={savePowerSchedule}
                     disabled={savingPower}
                     activeOpacity={0.8}
-                    style={[s.saveBtn, { borderColor: C.warningBorder, opacity: savingPower ? 0.5 : 1 }]}
+                    style={[
+                      s.saveBtn,
+                      {
+                        borderColor: C.warningBorder,
+                        opacity: savingPower ? 0.5 : 1,
+                      },
+                    ]}
                   >
-                    <Ionicons name="checkmark-circle-outline" size={16} color={C.warning} />
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={16}
+                      color={C.warning}
+                    />
                     <Text style={[s.saveBtnText, { color: C.warning }]}>
                       {savingPower ? "Enregistrement…" : "Enregistrer"}
                     </Text>
@@ -816,8 +1214,17 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
               style={[s.card, { borderColor: C.border }]}
             >
               <View style={s.cardHeader}>
-                <View style={[s.cardIconWrap, { backgroundColor: C.cyanDim, borderColor: C.cyanBorder }]}>
-                  <Ionicons name="information-circle-outline" size={18} color={C.cyan} />
+                <View
+                  style={[
+                    s.cardIconWrap,
+                    { backgroundColor: C.cyanDim, borderColor: C.cyanBorder },
+                  ]}
+                >
+                  <Ionicons
+                    name="information-circle-outline"
+                    size={18}
+                    color={C.cyan}
+                  />
                 </View>
                 <Text style={s.cardTitle}>Métadonnées</Text>
               </View>
@@ -837,7 +1244,9 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                     <View style={s.metaDivider} />
                     <View style={s.metaRow}>
                       <Text style={s.metaLabel}>Dernière activité</Text>
-                      <Text style={s.metaValue}>{formatDate(data.lastSeen)}</Text>
+                      <Text style={s.metaValue}>
+                        {formatDate(data.lastSeen)}
+                      </Text>
                     </View>
                   </>
                 )}
@@ -854,17 +1263,30 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
               onPress={handlePowerToggle}
             >
               <LinearGradient
-                colors={tvStatus === "OFFLINE"
-                  ? [C.successDim, "rgba(0,230,118,0.06)"]
-                  : [C.errorDim, "rgba(255,82,82,0.06)"]}
-                style={[s.actionBtn, { borderColor: tvStatus === "OFFLINE" ? C.successBorder : C.errorBorder }]}
+                colors={
+                  tvStatus === "OFFLINE"
+                    ? [C.successDim, "rgba(0,230,118,0.06)"]
+                    : [C.errorDim, "rgba(255,82,82,0.06)"]
+                }
+                style={[
+                  s.actionBtn,
+                  {
+                    borderColor:
+                      tvStatus === "OFFLINE" ? C.successBorder : C.errorBorder,
+                  },
+                ]}
               >
                 <Ionicons
                   name="power"
                   size={18}
                   color={tvStatus === "OFFLINE" ? C.success : C.error}
                 />
-                <Text style={[s.actionBtnText, { color: tvStatus === "OFFLINE" ? C.success : C.error }]}>
+                <Text
+                  style={[
+                    s.actionBtnText,
+                    { color: tvStatus === "OFFLINE" ? C.success : C.error },
+                  ]}
+                >
                   {tvStatus === "OFFLINE" ? "Allumer" : "Éteindre"}
                 </Text>
               </LinearGradient>
@@ -897,7 +1319,9 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                 style={[s.actionBtn, { borderColor: C.errorBorder }]}
               >
                 <Ionicons name="trash-outline" size={18} color={C.error} />
-                <Text style={[s.actionBtnText, { color: C.error }]}>Supprimer</Text>
+                <Text style={[s.actionBtnText, { color: C.error }]}>
+                  Supprimer
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -912,7 +1336,9 @@ const TvDetailsScreen: React.FC<TvDetailsProps> = () => {
                 style={[s.actionBtn, { borderColor: C.accentBorder }]}
               >
                 <Ionicons name="create-outline" size={18} color={C.accent} />
-                <Text style={[s.actionBtnText, { color: C.accent }]}>Modifier</Text>
+                <Text style={[s.actionBtnText, { color: C.accent }]}>
+                  Modifier
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>

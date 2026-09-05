@@ -18,7 +18,11 @@ type User = {
   lastName: string;
   email: string;
   company: string
+  siret: string | null
   isActive: boolean
+  /** false tant qu'un administrateur n'a pas validé le compte. */
+  isVerify: boolean
+  role: "ADMIN" | "USER" | "VIEWER"
   id: string;
 };
 
@@ -105,6 +109,29 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Affiche l'erreur renvoyée par POST /auth/login.
+ *
+ * Le 403 « compte en attente de validation » a son propre titre : c'est un état
+ * normal du parcours d'inscription, pas un échec d'identifiants, et l'utilisateur
+ * n'a rien à corriger de son côté.
+ */
+const showLoginError = (error: any) => {
+  const status = error?.response?.status;
+  const detail = error?.response?.data?.message;
+  const message = Array.isArray(detail) ? detail.join("\n") : detail;
+
+  if (status === 403) {
+    Alert.alert("Compte non accessible", message ?? "Votre compte n'est pas encore actif.");
+    return;
+  }
+
+  Alert.alert(
+    "Échec de la connexion",
+    message ?? "Identifiant ou mot de passe incorrect"
+  );
+};
+
 export const AuthProvider: React.FC = ({ children }) => {
   const [user, setUser] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -131,8 +158,20 @@ export const AuthProvider: React.FC = ({ children }) => {
 
           if (isDriver.status === false) {
             logout();
+            return;
           }
 
+          // Le jeton reste techniquement valable si un administrateur retire la
+          // validation après coup : on le vérifie au démarrage de l'app.
+          // Les comptes ADMIN ne sont pas soumis à la validation (cf. login côté serveur).
+          if (isDriver.isVerify === false && isDriver.role !== "ADMIN") {
+            Alert.alert(
+              "Compte non accessible",
+              "Votre compte est en attente de validation par un administrateur."
+            );
+            logout();
+            return;
+          }
 
           setSubscription(isDriver.subscription);
 
@@ -176,7 +215,10 @@ export const AuthProvider: React.FC = ({ children }) => {
           lastName: me.lastName,
           email: me.email,
           isActive: me.isActive,
-          company: me.company
+          isVerify: me.isVerify,
+          role: me.role,
+          company: me.company,
+          siret: me.siret,
         }
 
         await AsyncStorage.setItem(
@@ -190,14 +232,15 @@ export const AuthProvider: React.FC = ({ children }) => {
 
         return router.replace("/home");
       } else {
-        Alert.alert("Erreur de connexion", loginUser.err);
+        // `authlogin` renvoie l'erreur Axios telle quelle en cas d'échec : le
+        // message du serveur est dans `response.data.message`. On l'affichait
+        // via `loginUser.err`, qui n'existe pas — l'alerte était donc vide, y
+        // compris pour un compte en attente de validation (403).
+        showLoginError(loginUser);
       }
     } catch (error) {
       console.error("Login failed", error);
-      Alert.alert(
-        "Échec de la connexion",
-        "Identifiant ou mot de passe incorrect"
-      );
+      showLoginError(error);
     } finally {
       setIsLoading(false);
     }
@@ -208,17 +251,19 @@ export const AuthProvider: React.FC = ({ children }) => {
   const register = async (data: {
     firstName: string;
     lastName: string;
+    company: string;
+    siret: string;
     email: string;
     password: string;
+    phone?: string;
   }) => {
     setIsLoading(true);
 
     try {
-      const response = await authRegister(data);
-
-      if (response) {
-        return router.push("/home");
-      }
+      // Aucune redirection vers /home : l'inscription n'ouvre plus de session,
+      // le compte reste inaccessible tant qu'un administrateur ne l'a pas validé.
+      // C'est à l'écran appelant d'annoncer la mise en attente.
+      return await authRegister(data);
     } catch (error: any) {
       console.error("Registration failed", error);
 

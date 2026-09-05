@@ -197,8 +197,12 @@ export default function ProfileScreen() {
         "Vous comprenez que cette action est irréversible ?",
         [
           { text: "Annuler", style: "cancel" },
-          { text: "Continuer", style: "destructive", onPress: () => setDeleteStep(2) },
-        ]
+          {
+            text: "Continuer",
+            style: "destructive",
+            onPress: () => setDeleteStep(2),
+          },
+        ],
       );
     } else if (deleteStep === 2) {
       if (userInputCode.toUpperCase() === confirmationCode) {
@@ -223,13 +227,21 @@ export default function ProfileScreen() {
         Alert.alert(
           "Compte supprimé",
           "Votre compte a été supprimé avec succès. Nous sommes désolés de vous voir partir.",
-          [{ text: "OK", onPress: () => { handleCloseDeleteModal(); logout(); } }]
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                handleCloseDeleteModal();
+                logout();
+              },
+            },
+          ],
         );
       }
     } catch (error: any) {
       Alert.alert(
         "Erreur",
-        error?.response?.data?.message || "Impossible de supprimer le compte."
+        error?.response?.data?.message || "Impossible de supprimer le compte.",
       );
     } finally {
       setIsDeletingAccount(false);
@@ -238,33 +250,45 @@ export default function ProfileScreen() {
 
   const getRoleLabel = (role: string) => {
     switch (role?.toUpperCase()) {
-      case "ADMIN": return "Administrateur";
-      case "MODERATOR": return "Modérateur";
-      default: return "Utilisateur";
+      case "ADMIN":
+        return "Administrateur";
+      case "MODERATOR":
+        return "Modérateur";
+      default:
+        return "Utilisateur";
     }
   };
 
   const getRoleColor = (role: string) => {
     switch (role?.toUpperCase()) {
-      case "ADMIN": return C.purple;
-      case "MODERATOR": return C.accent;
-      default: return C.success;
+      case "ADMIN":
+        return C.purple;
+      case "MODERATOR":
+        return C.accent;
+      default:
+        return C.success;
     }
   };
 
   const getRoleDim = (role: string) => {
     switch (role?.toUpperCase()) {
-      case "ADMIN": return C.purpleDim;
-      case "MODERATOR": return C.accentDim;
-      default: return C.successDim;
+      case "ADMIN":
+        return C.purpleDim;
+      case "MODERATOR":
+        return C.accentDim;
+      default:
+        return C.successDim;
     }
   };
 
   const getRoleBorder = (role: string) => {
     switch (role?.toUpperCase()) {
-      case "ADMIN": return C.purpleBorder;
-      case "MODERATOR": return C.accentBorder;
-      default: return C.successBorder;
+      case "ADMIN":
+        return C.purpleBorder;
+      case "MODERATOR":
+        return C.accentBorder;
+      default:
+        return C.successBorder;
     }
   };
 
@@ -287,7 +311,12 @@ export default function ProfileScreen() {
 
             {/* Header */}
             <View style={s.modalHeader}>
-              <View style={[s.modalIconWrap, { backgroundColor: C.errorDim, borderColor: C.errorBorder }]}>
+              <View
+                style={[
+                  s.modalIconWrap,
+                  { backgroundColor: C.errorDim, borderColor: C.errorBorder },
+                ]}
+              >
                 <Ionicons name="warning-outline" size={22} color={C.error} />
               </View>
               <Text style={s.modalTitle}>Supprimer mon compte</Text>
@@ -310,7 +339,15 @@ export default function ProfileScreen() {
                   <Text style={s.modalStepText}>
                     La suppression de votre compte entraînera :
                   </Text>
-                  <View style={[s.warningList, { backgroundColor: C.errorDim, borderColor: C.errorBorder }]}>
+                  <View
+                    style={[
+                      s.warningList,
+                      {
+                        backgroundColor: C.errorDim,
+                        borderColor: C.errorBorder,
+                      },
+                    ]}
+                  >
                     {[
                       "Perte définitive de toutes vos données",
                       "Suppression de votre historique complet",
@@ -318,23 +355,42 @@ export default function ProfileScreen() {
                       "Impossibilité de récupérer votre compte",
                     ].map((item, i) => (
                       <View key={i} style={s.warningItem}>
-                        <Ionicons name="close-circle" size={18} color={C.error} />
-                        <Text style={[s.warningItemText, { color: C.white60 }]}>{item}</Text>
+                        <Ionicons
+                          name="close-circle"
+                          size={18}
+                          color={C.error}
+                        />
+                        <Text style={[s.warningItemText, { color: C.white60 }]}>
+                          {item}
+                        </Text>
                       </View>
                     ))}
                   </View>
                   <View style={s.modalActions}>
                     <TouchableOpacity
-                      style={[s.modalBtn, { backgroundColor: C.white10, borderColor: C.border }]}
+                      style={[
+                        s.modalBtn,
+                        { backgroundColor: C.white10, borderColor: C.border },
+                      ]}
                       onPress={handleCloseDeleteModal}
                     >
-                      <Text style={[s.modalBtnText, { color: C.white60 }]}>Annuler</Text>
+                      <Text style={[s.modalBtnText, { color: C.white60 }]}>
+                        Annuler
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[s.modalBtn, { backgroundColor: C.errorDim, borderColor: C.errorBorder }]}
+                      style={[
+                        s.modalBtn,
+                        {
+                          backgroundColor: C.errorDim,
+                          borderColor: C.errorBorder,
+                        },
+                      ]}
                       onPress={handleNextStep}
                     >
-                      <Text style={[s.modalBtnText, { color: C.error }]}>J'ai compris</Text>
+                      <Text style={[s.modalBtnText, { color: C.error }]}>
+                        J'ai compris
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -347,8 +403,15 @@ export default function ProfileScreen() {
                   <Text style={s.modalStepText}>
                     Pour confirmer, veuillez saisir le code suivant :
                   </Text>
-                  <View style={[s.codeBox, { backgroundColor: C.errorDim, borderColor: C.error }]}>
-                    <Text style={[s.codeText, { color: C.error }]}>{confirmationCode}</Text>
+                  <View
+                    style={[
+                      s.codeBox,
+                      { backgroundColor: C.errorDim, borderColor: C.error },
+                    ]}
+                  >
+                    <Text style={[s.codeText, { color: C.error }]}>
+                      {confirmationCode}
+                    </Text>
                   </View>
                   <TextInput
                     style={s.codeInput}
@@ -363,21 +426,31 @@ export default function ProfileScreen() {
                   />
                   <View style={s.modalActions}>
                     <TouchableOpacity
-                      style={[s.modalBtn, { backgroundColor: C.white10, borderColor: C.border }]}
+                      style={[
+                        s.modalBtn,
+                        { backgroundColor: C.white10, borderColor: C.border },
+                      ]}
                       onPress={() => setDeleteStep(1)}
                     >
-                      <Text style={[s.modalBtnText, { color: C.white60 }]}>Retour</Text>
+                      <Text style={[s.modalBtnText, { color: C.white60 }]}>
+                        Retour
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[
                         s.modalBtn,
-                        { backgroundColor: C.errorDim, borderColor: C.errorBorder },
+                        {
+                          backgroundColor: C.errorDim,
+                          borderColor: C.errorBorder,
+                        },
                         userInputCode.length !== 6 && s.modalBtnDisabled,
                       ]}
                       onPress={handleNextStep}
                       disabled={userInputCode.length !== 6}
                     >
-                      <Text style={[s.modalBtnText, { color: C.error }]}>Vérifier</Text>
+                      <Text style={[s.modalBtnText, { color: C.error }]}>
+                        Vérifier
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -386,9 +459,12 @@ export default function ProfileScreen() {
               {/* Étape 3 */}
               {deleteStep === 3 && (
                 <>
-                  <Text style={s.modalStepTitle}>Dernière étape (optionnel)</Text>
+                  <Text style={s.modalStepTitle}>
+                    Dernière étape (optionnel)
+                  </Text>
                   <Text style={s.modalStepText}>
-                    Pourriez-vous nous dire pourquoi vous souhaitez supprimer votre compte ?
+                    Pourriez-vous nous dire pourquoi vous souhaitez supprimer
+                    votre compte ?
                   </Text>
                   <TextInput
                     style={s.reasonInput}
@@ -401,7 +477,15 @@ export default function ProfileScreen() {
                     textAlignVertical="top"
                     selectionColor={C.error}
                   />
-                  <View style={[s.finalWarningRow, { backgroundColor: C.errorDim, borderColor: C.errorBorder }]}>
+                  <View
+                    style={[
+                      s.finalWarningRow,
+                      {
+                        backgroundColor: C.errorDim,
+                        borderColor: C.errorBorder,
+                      },
+                    ]}
+                  >
                     <Ionicons name="alert-circle" size={18} color={C.error} />
                     <Text style={[s.finalWarningText, { color: C.white60 }]}>
                       Cette action est définitive et irréversible
@@ -409,16 +493,24 @@ export default function ProfileScreen() {
                   </View>
                   <View style={s.modalActions}>
                     <TouchableOpacity
-                      style={[s.modalBtn, { backgroundColor: C.white10, borderColor: C.border }]}
+                      style={[
+                        s.modalBtn,
+                        { backgroundColor: C.white10, borderColor: C.border },
+                      ]}
                       onPress={() => setDeleteStep(2)}
                       disabled={isDeletingAccount}
                     >
-                      <Text style={[s.modalBtnText, { color: C.white60 }]}>Retour</Text>
+                      <Text style={[s.modalBtnText, { color: C.white60 }]}>
+                        Retour
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[
                         s.modalBtn,
-                        { backgroundColor: C.errorDim, borderColor: C.errorBorder },
+                        {
+                          backgroundColor: C.errorDim,
+                          borderColor: C.errorBorder,
+                        },
                         isDeletingAccount && s.modalBtnDisabled,
                       ]}
                       onPress={handleDeleteAccount}
@@ -445,7 +537,10 @@ export default function ProfileScreen() {
   // ── Loading / Error states ──
   if (isLoading && !user) {
     return (
-      <LinearGradient colors={[C.bgDeep, C.bgMid, "#0D1B4B"]} style={s.centered}>
+      <LinearGradient
+        colors={[C.bgDeep, C.bgMid, "#0D1B4B"]}
+        style={s.centered}
+      >
         <StatusBar barStyle="light-content" />
         <ActivityIndicator size="large" color={C.cyan} />
         <Text style={s.stateText}>Chargement du profil…</Text>
@@ -455,12 +550,18 @@ export default function ProfileScreen() {
 
   if (!user && !isLoading) {
     return (
-      <LinearGradient colors={[C.bgDeep, C.bgMid, "#0D1B4B"]} style={s.centered}>
+      <LinearGradient
+        colors={[C.bgDeep, C.bgMid, "#0D1B4B"]}
+        style={s.centered}
+      >
         <StatusBar barStyle="light-content" />
         <Ionicons name="person-circle-outline" size={80} color={C.white20} />
         <Text style={s.stateText}>Erreur de chargement du profil</Text>
         <TouchableOpacity
-          style={[s.retryBtn, { backgroundColor: C.accentDim, borderColor: C.accentBorder }]}
+          style={[
+            s.retryBtn,
+            { backgroundColor: C.accentDim, borderColor: C.accentBorder },
+          ]}
           onPress={fetchUserProfile}
         >
           <Text style={[s.retryBtnText, { color: C.accent }]}>Réessayer</Text>
@@ -483,7 +584,10 @@ export default function ProfileScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
-                onRefresh={() => { setRefreshing(true); fetchUserProfile(); }}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  fetchUserProfile();
+                }}
                 tintColor={C.cyan}
                 colors={[C.cyan]}
               />
@@ -494,12 +598,22 @@ export default function ProfileScreen() {
               colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.02)"]}
               style={s.header}
             >
-              <TouchableOpacity style={s.headerBtn} onPress={() => router.back()} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={s.headerBtn}
+                onPress={() => router.back()}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="arrow-back" size={18} color={C.white80} />
               </TouchableOpacity>
               <Text style={s.headerTitle}>Mon Profil</Text>
               <TouchableOpacity
-                style={[s.headerBtn, isEditing && { backgroundColor: C.errorDim, borderColor: C.errorBorder }]}
+                style={[
+                  s.headerBtn,
+                  isEditing && {
+                    backgroundColor: C.errorDim,
+                    borderColor: C.errorBorder,
+                  },
+                ]}
                 onPress={() => setIsEditing(!isEditing)}
                 disabled={isLoading}
                 activeOpacity={0.7}
@@ -516,7 +630,10 @@ export default function ProfileScreen() {
             <View style={s.avatarSection}>
               <View style={s.avatarWrap}>
                 {(user as any)?.avatar ? (
-                  <Image source={{ uri: (user as any).avatar }} style={s.avatar} />
+                  <Image
+                    source={{ uri: (user as any).avatar }}
+                    style={s.avatar}
+                  />
                 ) : (
                   <LinearGradient
                     colors={[C.accent, C.purple]}
@@ -550,7 +667,12 @@ export default function ProfileScreen() {
                   },
                 ]}
               >
-                <Text style={[s.rolePillText, { color: getRoleColor((user as any)?.role || "") }]}>
+                <Text
+                  style={[
+                    s.rolePillText,
+                    { color: getRoleColor((user as any)?.role || "") },
+                  ]}
+                >
                   {getRoleLabel((user as any)?.role || "")}
                 </Text>
               </View>
@@ -560,7 +682,9 @@ export default function ProfileScreen() {
                   s.statusPill,
                   {
                     backgroundColor: user?.isActive ? C.successDim : C.errorDim,
-                    borderColor: user?.isActive ? C.successBorder : C.errorBorder,
+                    borderColor: user?.isActive
+                      ? C.successBorder
+                      : C.errorBorder,
                   },
                 ]}
               >
@@ -588,16 +712,43 @@ export default function ProfileScreen() {
                 style={[s.card, { borderColor: C.accentBorder }]}
               >
                 <View style={s.cardHeader}>
-                  <View style={[s.cardIconWrap, { backgroundColor: C.accentDim, borderColor: C.accentBorder }]}>
-                    <Ionicons name="person-outline" size={18} color={C.accent} />
+                  <View
+                    style={[
+                      s.cardIconWrap,
+                      {
+                        backgroundColor: C.accentDim,
+                        borderColor: C.accentBorder,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="person-outline"
+                      size={18}
+                      color={C.accent}
+                    />
                   </View>
                   <Text style={s.cardTitle}>Informations personnelles</Text>
                 </View>
 
                 {[
-                  { label: "Prénom", value: firstName, setter: setFirstName, placeholder: "Prénom" },
-                  { label: "Nom", value: lastName, setter: setLastName, placeholder: "Nom de famille" },
-                  { label: "Entreprise", value: company, setter: setCompany, placeholder: "Pizza Time Montmartre" },
+                  {
+                    label: "Prénom",
+                    value: firstName,
+                    setter: setFirstName,
+                    placeholder: "Prénom",
+                  },
+                  {
+                    label: "Nom",
+                    value: lastName,
+                    setter: setLastName,
+                    placeholder: "Nom de famille",
+                  },
+                  {
+                    label: "Entreprise",
+                    value: company,
+                    setter: setCompany,
+                    placeholder: "Pizza Time Montmartre",
+                  },
                 ].map(({ label, value, setter, placeholder }) => (
                   <View style={s.inputGroup} key={label}>
                     <Text style={s.inputLabel}>{label}</Text>
@@ -636,9 +787,23 @@ export default function ProfileScreen() {
                         selectionColor={C.accent}
                       />
                       {subscription.length > 0 && (
-                        <View style={[s.emailWarning, { backgroundColor: C.warningDim, borderColor: C.warningBorder }]}>
-                          <Ionicons name="information-circle-outline" size={14} color={C.warning} />
-                          <Text style={[s.emailWarningText, { color: C.warning }]}>
+                        <View
+                          style={[
+                            s.emailWarning,
+                            {
+                              backgroundColor: C.warningDim,
+                              borderColor: C.warningBorder,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="information-circle-outline"
+                            size={14}
+                            color={C.warning}
+                          />
+                          <Text
+                            style={[s.emailWarningText, { color: C.warning }]}
+                          >
                             Impossible de modifier l'email après un abonnement
                           </Text>
                         </View>
@@ -663,10 +828,15 @@ export default function ProfileScreen() {
                   activeOpacity={0.8}
                 >
                   <LinearGradient
-                    colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
+                    colors={[
+                      "rgba(255,255,255,0.07)",
+                      "rgba(255,255,255,0.03)",
+                    ]}
                     style={[s.actionBtn, { borderColor: C.border }]}
                   >
-                    <Text style={[s.actionBtnText, { color: C.white60 }]}>Annuler</Text>
+                    <Text style={[s.actionBtnText, { color: C.white60 }]}>
+                      Annuler
+                    </Text>
                   </LinearGradient>
                 </TouchableOpacity>
 
@@ -683,7 +853,9 @@ export default function ProfileScreen() {
                     {isLoading ? (
                       <ActivityIndicator size="small" color={C.white} />
                     ) : (
-                      <Text style={[s.actionBtnText, { color: C.white }]}>Sauvegarder</Text>
+                      <Text style={[s.actionBtnText, { color: C.white }]}>
+                        Sauvegarder
+                      </Text>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -697,8 +869,17 @@ export default function ProfileScreen() {
                 style={[s.card, { borderColor: C.border }]}
               >
                 <View style={s.cardHeader}>
-                  <View style={[s.cardIconWrap, { backgroundColor: C.cyanDim, borderColor: C.cyanBorder }]}>
-                    <Ionicons name="settings-outline" size={18} color={C.cyan} />
+                  <View
+                    style={[
+                      s.cardIconWrap,
+                      { backgroundColor: C.cyanDim, borderColor: C.cyanBorder },
+                    ]}
+                  >
+                    <Ionicons
+                      name="settings-outline"
+                      size={18}
+                      color={C.cyan}
+                    />
                   </View>
                   <Text style={s.cardTitle}>Actions</Text>
                 </View>
@@ -709,11 +890,29 @@ export default function ProfileScreen() {
                   onPress={handleChangePassword}
                   activeOpacity={0.7}
                 >
-                  <View style={[s.actionItemIcon, { backgroundColor: C.warningDim, borderColor: C.warningBorder }]}>
-                    <Ionicons name="lock-closed-outline" size={18} color={C.warning} />
+                  <View
+                    style={[
+                      s.actionItemIcon,
+                      {
+                        backgroundColor: C.warningDim,
+                        borderColor: C.warningBorder,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={18}
+                      color={C.warning}
+                    />
                   </View>
-                  <Text style={[s.actionItemText, { color: C.white80 }]}>Changer le mot de passe</Text>
-                  <Ionicons name="chevron-forward-outline" size={16} color={C.white20} />
+                  <Text style={[s.actionItemText, { color: C.white80 }]}>
+                    Changer le mot de passe
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward-outline"
+                    size={16}
+                    color={C.white20}
+                  />
                 </TouchableOpacity>
 
                 {/* Déconnexion */}
@@ -722,29 +921,74 @@ export default function ProfileScreen() {
                   onPress={handleLogout}
                   activeOpacity={0.7}
                 >
-                  <View style={[s.actionItemIcon, { backgroundColor: C.errorDim, borderColor: C.errorBorder }]}>
-                    <Ionicons name="log-out-outline" size={18} color={C.error} />
+                  <View
+                    style={[
+                      s.actionItemIcon,
+                      {
+                        backgroundColor: C.errorDim,
+                        borderColor: C.errorBorder,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="log-out-outline"
+                      size={18}
+                      color={C.error}
+                    />
                   </View>
-                  <Text style={[s.actionItemText, { color: C.error }]}>Se déconnecter</Text>
-                  <Ionicons name="chevron-forward-outline" size={16} color={C.white20} />
+                  <Text style={[s.actionItemText, { color: C.error }]}>
+                    Se déconnecter
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward-outline"
+                    size={16}
+                    color={C.white20}
+                  />
                 </TouchableOpacity>
 
                 {/* Supprimer le compte */}
                 <TouchableOpacity
-                  style={[s.actionItem, { borderColor: C.border, marginBottom: 0 }]}
+                  style={[
+                    s.actionItem,
+                    { borderColor: C.border, marginBottom: 0 },
+                  ]}
                   onPress={handleOpenDeleteModal}
                   activeOpacity={0.7}
                 >
-                  <View style={[s.actionItemIcon, { backgroundColor: C.errorDim, borderColor: C.errorBorder }]}>
+                  <View
+                    style={[
+                      s.actionItemIcon,
+                      {
+                        backgroundColor: C.errorDim,
+                        borderColor: C.errorBorder,
+                      },
+                    ]}
+                  >
                     <Ionicons name="trash-outline" size={18} color={C.error} />
                   </View>
-                  <Text style={[s.actionItemText, { color: C.error }]}>Supprimer mon compte</Text>
-                  <Ionicons name="chevron-forward-outline" size={16} color={C.white20} />
+                  <Text style={[s.actionItemText, { color: C.error }]}>
+                    Supprimer mon compte
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward-outline"
+                    size={16}
+                    color={C.white20}
+                  />
                 </TouchableOpacity>
               </LinearGradient>
             </View>
 
             <View style={{ height: 40 }} />
+            <Text
+              style={[
+                s.actionItemText,
+                { color: C.error, textAlign: "center" },
+              ]}
+            >
+              {/* {process.env.VERSION_APP}
+               */}
+              v.1.2.4
+            </Text>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

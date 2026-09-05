@@ -11,28 +11,41 @@ export const authlogin = async (email: string, password: string) => {
   }
 };
 
+/**
+ * L'API n'accepte plus que des comptes professionnels : `company` et `siret`
+ * sont obligatoires, et tout champ hors de cette liste fait échouer la requête
+ * (ValidationPipe en `forbidNonWhitelisted` côté serveur).
+ *
+ * L'erreur est propagée telle quelle pour que l'appelant puisse lire
+ * `error.response.data.message` — un `return err` la ferait passer pour un succès.
+ */
 export const authRegister = async ({
   lastName,
   firstName,
+  company,
+  siret,
   email,
   password,
+  phone,
 }: {
   lastName: string;
   firstName: string;
+  company: string;
+  siret: string;
   email: string;
   password: string;
+  phone?: string;
 }) => {
-  try {
-    const request = await api.post("/auth/register", {
-      firstName,
-      lastName,
-      email,
-      password,
-    });
-    return request.data;
-  } catch (err) {
-    return err;
-  }
+  const request = await api.post("/auth/register", {
+    firstName,
+    lastName,
+    company,
+    siret,
+    email,
+    password,
+    ...(phone ? { phone } : {}),
+  });
+  return request.data;
 };
 
 export const authMe = async () => {

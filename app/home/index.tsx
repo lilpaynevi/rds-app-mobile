@@ -144,7 +144,11 @@ const QuickActionCard: React.FC<{ action: QuickAction }> = ({ action }) => {
       activeOpacity={1}
       style={{ width: "48%", marginBottom: 12 }}
     >
-      <Animated.View style={{ transform: [{ scale }] }}>
+      {/* `flex: 1` à chaque niveau pour que l'étirement de la rangée descende
+          jusqu'au dégradé : la grille étire déjà ses enfants à la hauteur du
+          plus grand (`alignItems: "stretch"` par défaut), mais sans cela seul
+          le TouchableOpacity s'étirait et la carte gardait sa hauteur propre. */}
+      <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
         <LinearGradient
           colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
           style={[s.qaCard, { borderColor: action.accentBorder }]}
@@ -159,6 +163,8 @@ const QuickActionCard: React.FC<{ action: QuickAction }> = ({ action }) => {
               color={action.accent}
             />
           </LinearGradient>
+          {/* Aucune limite de lignes : le titre doit être lisible en entier,
+              quelle que soit sa longueur. C'est la carte qui s'adapte. */}
           <Text style={s.qaTitle}>{action.title}</Text>
           <Ionicons
             name="chevron-forward-outline"
@@ -346,14 +352,15 @@ const HomeScreen = () => {
 
   const quickActions: QuickAction[] = [
     {
-      id: "1",
-      title: subscription?.length > 0 ? "Augmenter ma capacité" : "M'abonner",
-      icon: "card-outline",
-      accent: C.purple,
-      accentDim: C.purpleDim,
-      accentBorder: C.purpleBorder,
-      action: abonnmentRender,
+      id: "3",
+      title: "Gérer mes TVs",
+      icon: "settings-outline",
+      accent: C.success,
+      accentDim: C.successDim,
+      accentBorder: C.successBorder,
+      action: () => router.navigate("/home/tv/MyTVScreen"),
     },
+
     {
       id: "2",
       title: "Mes playlists",
@@ -362,15 +369,6 @@ const HomeScreen = () => {
       accentDim: C.accentDim,
       accentBorder: C.accentBorder,
       action: () => router.navigate("/home/playlists"),
-    },
-    {
-      id: "3",
-      title: "Gérer mes TVs",
-      icon: "settings-outline",
-      accent: C.success,
-      accentDim: C.successDim,
-      accentBorder: C.successBorder,
-      action: () => router.navigate("/home/tv/MyTVScreen"),
     },
     ...(subscription?.length > 0
       ? [
@@ -385,6 +383,15 @@ const HomeScreen = () => {
           },
         ]
       : []),
+    {
+      id: "1",
+      title: subscription?.length > 0 ? "Augmenter ma capacité" : "M'abonner",
+      icon: "card-outline",
+      accent: C.purple,
+      accentDim: C.purpleDim,
+      accentBorder: C.purpleBorder,
+      action: abonnmentRender,
+    },
   ];
 
   // ── Data ──
@@ -798,6 +805,7 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
   },
   qaCard: {
+    flex: 1,
     borderRadius: 18,
     borderWidth: 1,
     padding: 16,
@@ -817,6 +825,11 @@ const s = StyleSheet.create({
     fontWeight: "700",
     color: C.white80,
     lineHeight: 18,
+    // Deux lignes réservées au MINIMUM (2 × lineHeight), même pour un intitulé
+    // qui n'en occupe qu'une : c'est ce qui aligne les cartes courtes sur les
+    // longues. `minHeight` et non `height`, pour qu'un titre de trois lignes
+    // s'affiche en entier au lieu d'être rogné.
+    minHeight: 36,
   },
 
   // TV Card

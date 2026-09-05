@@ -25,23 +25,40 @@ import { LinearGradient } from "expo-linear-gradient";
 import { socket } from "@/scripts/socket.io";
 import api, { baseURL } from "@/scripts/fetch.api";
 import ScheduleForm from "@/components/schedules/SchelduleForm";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import AddMediaForm from "@/components/medias/AddMediaForm";
 import DurationModal from "@/components/medias/durationModal";
+import OrientationModal, {
+  MediaOrientation,
+} from "@/components/medias/orientationModal";
+import RotationModal, {
+  MediaRotation,
+} from "@/components/medias/rotationModal";
+import MediaPreviewImage from "@/components/medias/MediaPreviewImage";
 import TVSelectionModal from "@/components/medias/TVSelectionModal";
 
 const { width, height } = Dimensions.get("window");
 
-const formatDuration = (seconds) => {
-  if (!seconds) return "0:00";
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
+// Toutes les durées manipulées ici sont en MILLISECONDES : c'est l'unité
+// stockée en base (`changeDurationMedia` valide 1000 à 600000) malgré le
+// commentaire « in seconds » du schéma Prisma, qui est périmé.
+const formatDuration = (durationMs) => {
+  if (!durationMs) return "0:00";
+  const totalSeconds = Math.round(durationMs / 1000);
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 };
 
-// En haut de votre composant, avant le return
+// Ne JAMAIS inventer de valeur ici. Cette fonction renvoyait « 10s » quand la
+// durée était absente : un média sans durée affichait donc exactement la même
+// chose qu'un média réglé sur 10 secondes, et il était impossible de voir que
+// rien n'était enregistré.
 const formatDurationDisplay = (durationMs) => {
-  if (!durationMs) return "10s"; // Valeur par défaut
+  if (!durationMs) return "Non définie";
 
   const seconds = Math.round(durationMs / 1000);
 
@@ -59,6 +76,19 @@ const formatDurationDisplay = (durationMs) => {
   return `${minutes}min ${remainingSeconds}s`;
 };
 
+/**
+ * Variante courte pour la vue grille, où la place est comptée.
+ * « — » signale explicitement une durée non définie : afficher une valeur
+ * inventée empêcherait de voir que rien n'est enregistré.
+ */
+const formatDurationCompact = (durationMs: number | null | undefined) => {
+  if (!durationMs) return "—";
+  const seconds = Math.round(durationMs / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  return `${minutes}m`;
+};
+
 const formatDate = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -71,7 +101,7 @@ const formatDate = (dateString) => {
 
 // Modal pour modifier l'ordre
 const ReorderModal = ({ visible, onClose, media, onReorder }) => {
-  const [reorderedMedia, setReorderedMedia] = useState([]);
+  const [reorderedMedia, setReorderedMedia] = useState<any[]>([]);
 
   useEffect(() => {
     if (visible && media) {
@@ -125,20 +155,20 @@ const ReorderModal = ({ visible, onClose, media, onReorder }) => {
                   <View style={styles.reorderThumbnail}>
                     {isVideo ? (
                       <View style={styles.videoListThumbnail}>
-                        <Image
-                          source={{ uri: baseURL + item.url }}
+                        <MediaPreviewImage
+                          url={baseURL + item.url}
+                          isVideo
                           style={styles.listImage}
-                          resizeMode="cover"
                         />
                         <View style={styles.listPlayOverlay}>
                           <Ionicons name="play" size={12} color="#333" />
                         </View>
                       </View>
                     ) : (
-                      <Image
-                        source={{ uri: baseURL + item.url }}
+                      <MediaPreviewImage
+                        url={baseURL + item.url}
+                        isVideo={false}
                         style={styles.listImage}
-                        resizeMode="cover"
                       />
                     )}
                   </View>
@@ -326,11 +356,27 @@ const MediaViewerModal = ({
 
 // Ajoutez ce composant avant le composant principal PlaylistContent
 const ScheduleModal = ({ visible, onClose, schedule, onSave, onDelete }) => {
-  const [formData, setFormData] = useState({
+  // Barre de navigation Android (et barre d'accueil iOS). La feuille se dessine
+  // DERRIÈRE elle en affichage bord à bord : sans cette marge, « Supprimer »,
+  // « Annuler » et « Modifier » se retrouvaient sous les trois boutons système.
+  const insets = useSafeAreaInsets();
+
+  // Les bornes de dates sont optionnelles : `null` signifie « aucune limite ».
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    startDate: Date | null;
+    endDate: Date | null;
+    startTime: string;
+    endTime: string;
+    daysOfWeek: number[];
+    isActive: boolean;
+    priority: number;
+  }>({
     title: "",
     description: "",
-    startDate: new Date(),
-    endDate: new Date(),
+    startDate: null,
+    endDate: null,
     startTime: "08:00",
     endTime: "18:00",
     daysOfWeek: [],
@@ -353,8 +399,11 @@ const ScheduleModal = ({ visible, onClose, schedule, onSave, onDelete }) => {
       setFormData({
         title: schedule.title || "",
         description: schedule.description || "",
-        startDate: new Date(schedule.startDate),
-        endDate: new Date(schedule.endDate),
+        // Les bornes de dates sont optionnelles en base. `new Date(null)`
+        // renvoyait le 1er janvier 1970 et `new Date(undefined)` une date
+        // invalide — les deux se retrouvaient tels quels dans le PATCH.
+        startDate: schedule.startDate ? new Date(schedule.startDate) : null,
+        endDate: schedule.endDate ? new Date(schedule.endDate) : null,
         startTime: schedule.startTime || "08:00",
         endTime: schedule.endTime || "18:00",
         daysOfWeek: schedule.daysOfWeek || [],
@@ -362,12 +411,13 @@ const ScheduleModal = ({ visible, onClose, schedule, onSave, onDelete }) => {
         priority: schedule.priority || 5,
       });
     } else {
-      // Reset pour nouvelle programmation
+      // Reset pour nouvelle programmation — aucune borne de dates par défaut,
+      // sinon la programmation expirerait sans que rien ne l'affiche.
       setFormData({
         title: "",
         description: "",
-        startDate: new Date(),
-        endDate: new Date(),
+        startDate: null,
+        endDate: null,
         startTime: "08:00",
         endTime: "18:00",
         daysOfWeek: [],
@@ -418,18 +468,34 @@ const ScheduleModal = ({ visible, onClose, schedule, onSave, onDelete }) => {
             </TouchableOpacity>
           </View>
 
-          <ScheduleForm
-            onSave={(newData) => {
-              console.log("🚀 ~ ScheduleModal ~ newData:", newData);
-              setFormData({
-                ...formData,
-                ...newData,
-              });
-            }}
-            values={formData}
-          />
+          {/* Zone défilante : le formulaire ne défile pas de lui-même, et son
+              contenu dépasse la hauteur maximale de la feuille sur un écran
+              compact — il repoussait alors les boutons d'action hors du
+              conteneur. `flexShrink` est la clé : sans lui la zone garde la
+              hauteur de son contenu au lieu de se comprimer. */}
+          <ScrollView
+            style={{ flexShrink: 1 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <ScheduleForm
+              onSave={(newData) => {
+                console.log("🚀 ~ ScheduleModal ~ newData:", newData);
+                setFormData({
+                  ...formData,
+                  ...newData,
+                });
+              }}
+              values={formData}
+            />
+          </ScrollView>
 
-          <View style={styles.scheduleModalActions}>
+          <View
+            style={[
+              styles.scheduleModalActions,
+              { paddingBottom: Math.max(insets.bottom, 20) },
+            ]}
+          >
             {schedule && (
               <TouchableOpacity
                 onPress={() => onDelete(schedule.id)}
@@ -464,8 +530,8 @@ const ScheduleModal = ({ visible, onClose, schedule, onSave, onDelete }) => {
 
 const PlaylistContent = ({ onBack }) => {
   const { playlistId } = useLocalSearchParams();
-  const [playlist, setPlaylist] = useState(null);
-  const [media, setMedia] = useState([]);
+  const [playlist, setPlaylist] = useState<any>(null);
+  const [media, setMedia] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -473,7 +539,20 @@ const PlaylistContent = ({ onBack }) => {
   const [viewMode, setViewMode] = useState("list");
   const [addMediaModalVisible, setAddMediaModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState([]);
+  /**
+   * Avancement de l'envoi, en pourcentage.
+   *
+   * Indispensable au-delà de quelques mégaoctets : une vidéo de 300 Mo met
+   * plusieurs minutes à partir, et un simple indicateur d'activité ne permet pas
+   * de distinguer un envoi qui progresse d'un envoi bloqué.
+   */
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFiles, setSelectedFiles] = useState<any[]>([]);
+
+  // Renommage de la playlist
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   // Nouveaux states pour les nouvelles fonctionnalités
   const [reorderModalVisible, setReorderModalVisible] = useState(false);
@@ -496,16 +575,96 @@ const PlaylistContent = ({ onBack }) => {
 
   // Dans les states existants, ajoutez :
   const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
-  const [schedules, setSchedules] = useState([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
   const [editingSchedule, setEditingSchedule] = useState(null);
 
   const [durationModalVisible, setDurationModalVisible] = useState(false);
-  const [editingMedia, setEditingMedia] = useState(null);
+  const [orientationModalVisible, setOrientationModalVisible] = useState(false);
+  const [rotationModalVisible, setRotationModalVisible] = useState(false);
+  const [editingMedia, setEditingMedia] = useState<any>(null);
 
   const openDurationEditor = (media) => {
     setEditingMedia(media);
     console.debug("🚀 ~ openDurationEditor ~ media:", media);
     setDurationModalVisible(true);
+  };
+
+  const openOrientationEditor = (media: any) => {
+    setEditingMedia(media);
+    setOrientationModalVisible(true);
+  };
+
+  const openRotationEditor = (media: any) => {
+    setEditingMedia(media);
+    setRotationModalVisible(true);
+  };
+
+  const handleRotationSave = async (newRotation: MediaRotation) => {
+    const previousRotation = editingMedia?.rotation ?? 0;
+    const mediaId = editingMedia?.id;
+
+    // Optimiste, avec retour arrière si le serveur refuse.
+    setMedia((prevMedia) =>
+      prevMedia.map((m) =>
+        m.id === mediaId ? { ...m, rotation: newRotation } : m,
+      ),
+    );
+
+    try {
+      await api.patch(`/playlists/${playlistId}/media/${mediaId}/rotation`, {
+        rotation: newRotation,
+      });
+      // Pas de "tv-change-playlist" : le serveur émet
+      // "tv-media-rotation-updated", que la TV applique au média en cours sans
+      // recharger la playlist.
+    } catch (error: any) {
+      setMedia((prevMedia) =>
+        prevMedia.map((m) =>
+          m.id === mediaId ? { ...m, rotation: previousRotation } : m,
+        ),
+      );
+      Alert.alert(
+        "Erreur",
+        error?.response?.data?.message ??
+          error?.message ??
+          "Impossible de pivoter le média",
+      );
+    }
+  };
+
+  const handleOrientationSave = async (newOrientation: MediaOrientation) => {
+    const previousOrientation = editingMedia?.orientation ?? "AUTO";
+    const mediaId = editingMedia?.id;
+
+    // Optimiste : la liste reflète le choix immédiatement, on revient en
+    // arrière si le serveur refuse.
+    setMedia((prevMedia) =>
+      prevMedia.map((m) =>
+        m.id === mediaId ? { ...m, orientation: newOrientation } : m,
+      ),
+    );
+
+    try {
+      // Pas de "tv-change-playlist" ici : le serveur émet lui-même
+      // "tv-media-orientation-updated" vers les TVs concernées, qui corrigent
+      // le média en cours sans recharger la playlist ni repartir du début.
+      // Il couvre aussi les TVs où la playlist tourne via la file d'attente,
+      // que "tv-change-playlist" rejetait faute de playlist active.
+      await api.patch(`/playlists/${playlistId}/media/${mediaId}/orientation`, {
+        orientation: newOrientation,
+      });
+    } catch (error: any) {
+      setMedia((prevMedia) =>
+        prevMedia.map((m) =>
+          m.id === mediaId ? { ...m, orientation: previousOrientation } : m,
+        ),
+      );
+      Alert.alert(
+        "Erreur",
+        error?.response?.data?.message ||
+          "Impossible de mettre à jour l'orientation",
+      );
+    }
   };
 
   const handleDurationSave = async (newDuration) => {
@@ -594,8 +753,11 @@ const PlaylistContent = ({ onBack }) => {
         console.log("📤 PATCH /schedules/" + scheduleId, payload);
         const res = await api.patch(`/schedules/${scheduleId}`, payload);
 
+        // Pas de notification manuelle : le serveur prévient lui-même toutes
+        // les TVs concernées (celle du planning, celles de la playlist, celles
+        // qui l'ont en file d'attente). En émettre une seconde ici faisait
+        // recharger la TV deux fois.
         if (res.status === 200) {
-          notifyAllTvs("tv-schedules-updated", (tvId) => ({ tvId }));
           Alert.alert("Succès", "Programmation modifiée");
           setScheduleModalVisible(false);
           setEditingSchedule(null);
@@ -613,10 +775,14 @@ const PlaylistContent = ({ onBack }) => {
           endTime: scheduleData.endTime,
           title: scheduleData.title || "Programme sans titre",
           description: scheduleData.description || "",
-          startDate: scheduleData.startDate || new Date(),
-          endDate:
-            scheduleData.endDate ||
-            new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 jours
+          // Ne JAMAIS inventer de plage de dates. Une date de fin par défaut à
+          // +7 jours faisait expirer la programmation à l'insu de l'utilisateur
+          // — aucun champ de date n'est exposé dans le formulaire. Passé ce
+          // délai le planning cessait de s'appliquer, et la playlist repassait
+          // dans la rotation de la file où elle tournait en continu.
+          // `null` = aucune borne, ce que le schéma autorise (DateTime?).
+          startDate: scheduleData.startDate ?? null,
+          endDate: scheduleData.endDate ?? null,
           isActive:
             scheduleData.isActive !== undefined ? scheduleData.isActive : true,
           priority: scheduleData.priority || 5,
@@ -626,7 +792,6 @@ const PlaylistContent = ({ onBack }) => {
         const res = await api.post("/schedules", payload);
 
         if (res.status === 200 || res.status === 201) {
-          notifyAllTvs("tv-schedules-updated", (tvId) => ({ tvId }));
           Alert.alert("Succès", "Programmation créée");
           setScheduleModalVisible(false);
           setEditingSchedule(null);
@@ -654,13 +819,55 @@ const PlaylistContent = ({ onBack }) => {
           onPress: async () => {
             try {
               setLoading(true);
-              await api.delete(`/schedules/${scheduleId}`);
-              notifyAllTvs("tv-schedules-updated", (tvId) => ({ tvId }));
+              const res = await api.delete(`/schedules/${scheduleId}`);
+
+              // Le serveur renvoie `{ success: true }`. On exige cette
+              // confirmation explicite : `SchedulesService.update` a montré
+              // qu'un refus pouvait revenir en 200 avec un corps vide, et on
+              // annoncerait alors une suppression qui n'a pas eu lieu.
+              if (res.data?.success !== true) {
+                throw new Error(
+                  res.data?.message ??
+                    "Le serveur n'a pas confirmé la suppression",
+                );
+              }
+
+              // Retrait immédiat de l'état local. Le modal reçoit son planning
+              // depuis `playlist.schedules[0]` : sans ce nettoyage il se
+              // réouvrirait avec les champs du planning supprimé, et son bouton
+              // « Supprimer » renverrait un 404.
+              setSchedules((prev) =>
+                (prev ?? []).filter((s) => s.id !== scheduleId),
+              );
+              setPlaylist((prev: any) =>
+                prev
+                  ? {
+                      ...prev,
+                      schedules: (prev.schedules ?? []).filter(
+                        (s) => s.id !== scheduleId,
+                      ),
+                    }
+                  : prev,
+              );
+
               setScheduleModalVisible(false);
               setEditingSchedule(null);
-            } catch (error) {
-              console.error("Erreur suppression programmation:", error);
-              Alert.alert("Erreur", "Impossible de supprimer la programmation");
+
+              Alert.alert(
+                "Programmation supprimée",
+                "Cette playlist n'a plus d'horaires. Si elle est active, elle repasse en diffusion continue.",
+              );
+
+              // Resynchronise depuis le serveur : les écrans ont été prévenus
+              // de leur côté, l'app doit refléter le même état.
+              loadPlaylistContent();
+            } catch (error: any) {
+              const message =
+                error?.response?.data?.message ??
+                error?.message ??
+                "Impossible de supprimer la programmation";
+              console.error("Erreur suppression programmation:", message);
+              Alert.alert("Erreur", message);
             } finally {
               setLoading(false);
             }
@@ -750,7 +957,13 @@ const PlaylistContent = ({ onBack }) => {
           thumbnailUrl: baseURL + item.media.s3Url,
           type: getMediaType(item.media.filename),
           mimeType: getMimeType(item.media.filename),
-          duration: item.media.duration,
+          // Même priorité que l'écran (`item.duration ?? item.media.duration`) :
+          // la durée portée par l'item vaut pour cette playlist seulement, celle
+          // du média est la valeur globale. Lire uniquement la seconde faisait
+          // afficher une durée différente de celle réellement diffusée.
+          duration: item.duration ?? item.media.duration ?? null,
+          orientation: item.orientation || "AUTO",
+          rotation: Number(item.rotation) || 0,
           createdAt: item.createdAt || playlistData.createdAt,
           originalData: item.media,
           order: item.order || index,
@@ -921,7 +1134,9 @@ const PlaylistContent = ({ onBack }) => {
         onPress: async () => {
           try {
             await api.delete(`/playlists/${playlistId}/unassign-tv/${tvId}`);
-            setAssignedTvs((prev) => prev.filter((t) => t.televisionId !== tvId));
+            setAssignedTvs((prev) =>
+              prev.filter((t) => t.televisionId !== tvId),
+            );
             if (selectedTv?.id === tvId) setSelectedTv(null);
           } catch {
             Alert.alert("Erreur", "Impossible de désassigner la TV");
@@ -974,16 +1189,58 @@ const PlaylistContent = ({ onBack }) => {
         formData.append("files", {
           uri: file.uri,
           type: file.type === "video" ? "video/mp4" : "image/jpeg",
-          name: file.name || `media_${index}`,
+          // `AddMediaForm` renseigne `fileName`, pas `name` : sans ce repli le
+          // nom réel était toujours perdu, et le serveur déduisait l'extension
+          // du seul mimetype — un PNG finissait enregistré en .jpg.
+          name: file.fileName || file.name || `media_${index}`,
         } as any);
       });
 
       formData.append("playlistId", playlistId);
+
+      // Durée d'affichage choisie pour chaque média, EN MILLISECONDES et dans
+      // le même ordre que les fichiers. Sans ça, le serveur appliquait la valeur
+      // par défaut de son type (3 s pour une image) et le réglage visible dans
+      // le formulaire n'était jamais enregistré.
+      formData.append(
+        "durations",
+        JSON.stringify(
+          selectedFiles.map((file) => {
+            const seconds = Number(file.duration);
+            return Number.isFinite(seconds) && seconds > 0
+              ? Math.round(seconds * 1000)
+              : null;
+          }),
+        ),
+      );
+
+      // Dimensions des médias, dans le même ordre que les fichiers. Le serveur
+      // ne décode pas les fichiers : sans ça, Media.width/height restent nuls
+      // et la TV doit deviner l'orientation à la lecture.
+      formData.append(
+        "dimensions",
+        JSON.stringify(
+          selectedFiles.map((file) => ({
+            width: Number(file.width) || null,
+            height: Number(file.height) || null,
+          })),
+        ),
+      );
+
       console.log("🚀 ~ handleUpload ~ formData:", formData);
+
+      setUploadProgress(0);
 
       const response = await api.patch("/playlists/" + playlistId, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
+        },
+        // `api` n'a volontairement aucun timeout : un envoi de plusieurs
+        // centaines de mégaoctets dure bien plus longtemps que n'importe quelle
+        // valeur raisonnable.
+        onUploadProgress: (event) => {
+          if (!event.total) return;
+          setUploadProgress(Math.round((event.loaded / event.total) * 100));
         },
       });
 
@@ -1003,11 +1260,69 @@ const PlaylistContent = ({ onBack }) => {
       } else {
         throw new Error(response.data?.message || "Erreur lors de l'upload");
       }
-    } catch (error) {
-      console.error("Erreur upload:", error);
-      Alert.alert("Erreur", error.message || "Impossible d'ajouter les médias");
+    } catch (error: any) {
+      // Une erreur axios ne se sérialise pas (JSON.stringify → null) : le détail
+      // utile est dans error.response.
+      const status = error?.response?.status;
+      const serverMessage = error?.response?.data?.message;
+      console.error("Erreur upload:", status ?? "", serverMessage ?? error?.message);
+
+      Alert.alert(
+        "Erreur",
+        status === 413
+          ? "Fichier trop volumineux pour le serveur. Réduisez la définition ou la durée de la vidéo."
+          : serverMessage || error?.message || "Impossible d'ajouter les médias",
+      );
     } finally {
       setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const openRenameModal = () => {
+    setRenameValue(playlist?.name ?? "");
+    setRenameModalVisible(true);
+  };
+
+  /**
+   * Renomme la playlist.
+   *
+   * `PATCH /playlists/:id` est la route de mise à jour générale, mais un corps
+   * ne portant que `name` ne touche à rien d'autre : la programmation n'est
+   * réécrite que si `dateLancement` ET `heureLancement` sont présents, et
+   * supprimée que sur `removeSchedule: true`. Les autres champs retombent sur
+   * les valeurs existantes.
+   */
+  const handleRenamePlaylist = async () => {
+    const name = renameValue.trim();
+
+    if (!name) {
+      Alert.alert("Titre requis", "Le titre ne peut pas être vide.");
+      return;
+    }
+    if (name === playlist?.name) {
+      setRenameModalVisible(false);
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      await api.patch(`/playlists/${playlistId}`, { name });
+
+      // Mise à jour locale immédiate : l'en-tête affiche le nouveau titre sans
+      // attendre le rechargement complet du contenu.
+      setPlaylist((previous: any) =>
+        previous ? { ...previous, name } : previous,
+      );
+      setRenameModalVisible(false);
+      loadPlaylistContent();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ?? "Impossible de renommer la playlist";
+      console.error("Erreur renommage:", message);
+      Alert.alert("Erreur", String(message));
+    } finally {
+      setRenaming(false);
     }
   };
 
@@ -1050,9 +1365,21 @@ const PlaylistContent = ({ onBack }) => {
     }
   };
 
+  // Icône/libellé de l'orientation choisie pour un média
+  const ORIENTATION_UI: Record<
+    string,
+    { icon: keyof typeof Ionicons.glyphMap; label: string }
+  > = {
+    AUTO: { icon: "sparkles-outline", label: "Auto" },
+    LANDSCAPE: { icon: "tablet-landscape-outline", label: "Paysage" },
+    PORTRAIT: { icon: "tablet-portrait-outline", label: "Portrait" },
+  };
+
   const renderMediaItem = ({ item, index }) => {
     const isVideo =
       item.type === "video" || item.mimeType?.startsWith("video/");
+    const orientationUi =
+      ORIENTATION_UI[item.orientation] ?? ORIENTATION_UI.AUTO;
 
     if (viewMode === "grid") {
       return (
@@ -1062,53 +1389,93 @@ const PlaylistContent = ({ onBack }) => {
           activeOpacity={0.8}
         >
           <View style={styles.gridItem}>
-            <View style={styles.thumbnail}>
-              {isVideo ? (
-                <View style={styles.videoContainer}>
-                  <Image
-                    source={{ uri: baseURL + item.url }}
-                    style={styles.thumbnail}
-                    resizeMode="cover"
+            {/* Miniature autonome : l'image remplit son conteneur, et la
+                superposition « lecture » ne dépend plus de la hauteur du bloc
+                d'informations. Auparavant le même style servait au conteneur ET
+                à l'image, qui n'occupait donc que 78 % de sa propre boîte. */}
+            <View style={styles.gridThumbWrap}>
+              <MediaPreviewImage
+                url={baseURL + item.url}
+                isVideo={isVideo}
+                style={styles.gridThumbImage}
+              />
+              {isVideo && (
+                <View style={styles.gridPlayOverlay}>
+                  <Ionicons
+                    name="play-circle"
+                    size={34}
+                    color="rgba(255,255,255,0.9)"
                   />
-                  <View style={styles.playOverlay}>
-                    <Ionicons
-                      name="play-circle"
-                      size={40}
-                      color="rgba(255,255,255,0.9)"
-                    />
-                  </View>
-                  {item.duration > 0 && (
-                    <View style={styles.durationBadge}>
-                      <Text style={styles.durationText}>
-                        {formatDuration(item.duration)}
-                      </Text>
-                    </View>
-                  )}
                 </View>
-              ) : (
-                <Image
-                  source={{ uri: baseURL + item.url }}
-                  style={styles.thumbnail}
-                  resizeMode="cover"
-                />
               )}
             </View>
+
             <View style={styles.mediaInfo}>
               <Text style={styles.mediaTitle} numberOfLines={1}>
                 {item.title || item.name || "Sans titre"}
               </Text>
+
+              {/* Les trois mêmes actions que la vue liste. Le libellé de type
+                  (« 🎥 Vidéo ») a été retiré : il consommait la largeur dont le
+                  bouton de durée avait besoin, alors que l'icône de lecture sur
+                  la miniature donne déjà l'information. */}
               <View style={styles.mediaMeta}>
-                <Text style={styles.mediaType}>
-                  {isVideo ? "🎥 Vidéo" : "📷 Photo"}
-                </Text>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openDurationEditor(item);
+                  }}
+                  style={styles.gridActionButton}
+                >
+                  <Ionicons name="time-outline" size={13} color={C.accent} />
+                  <Text style={styles.gridActionText}>
+                    {formatDurationCompact(item.duration)}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openOrientationEditor(item);
+                  }}
+                  style={[
+                    styles.gridActionButton,
+                    item.orientation &&
+                      item.orientation !== "AUTO" &&
+                      styles.gridActionButtonForced,
+                  ]}
+                >
+                  <Ionicons
+                    name={orientationUi.icon}
+                    size={13}
+                    color={C.accent}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openRotationEditor(item);
+                  }}
+                  style={[
+                    styles.gridActionButton,
+                    item.rotation ? styles.gridActionButtonForced : null,
+                  ]}
+                >
+                  <Ionicons name="sync-outline" size={13} color={C.accent} />
+                  {item.rotation ? (
+                    <Text style={styles.gridActionText}>{item.rotation}°</Text>
+                  ) : null}
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   onPress={(e) => {
                     e.stopPropagation();
                     confirmDeleteMedia(item.id);
                   }}
-                  style={styles.deleteButton}
+                  style={styles.gridDeleteButton}
                 >
-                  <Ionicons name="trash-bin" size={16} color="#FF6B6B" />
+                  <Ionicons name="trash-bin" size={13} color={C.danger} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -1123,15 +1490,19 @@ const PlaylistContent = ({ onBack }) => {
         onPress={() => openMediaViewer(item, index)}
         activeOpacity={0.8}
       >
+        {/* Ligne du haut : identité du média. Les réglages sont sur leur propre
+            ligne en dessous — quatre boutons libellés en concurrence avec le
+            titre le réduisaient à zéro et poussaient la corbeille hors écran. */}
+        <View style={styles.listTopRow}>
         <Text style={styles.orderNumber}>{index + 1}</Text>
 
         <View style={styles.listThumbnail}>
           {isVideo ? (
             <View style={styles.videoListThumbnail}>
-              <Image
-                source={{ uri: baseURL + item.url }}
+              <MediaPreviewImage
+                url={baseURL + item.url}
+                isVideo
                 style={styles.listImage}
-                resizeMode="cover"
               />
               <View style={styles.listPlayOverlay}>
                 <Ionicons name="play" size={16} color="#333" />
@@ -1145,10 +1516,10 @@ const PlaylistContent = ({ onBack }) => {
               )}
             </View>
           ) : (
-            <Image
-              source={{ uri: baseURL + item.url }}
+            <MediaPreviewImage
+              url={baseURL + item.url}
+              isVideo={false}
               style={styles.listImage}
-              resizeMode="cover"
             />
           )}
         </View>
@@ -1168,6 +1539,19 @@ const PlaylistContent = ({ onBack }) => {
           </View>
         </View>
 
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              confirmDeleteMedia(item.id);
+            }}
+            style={styles.listDeleteButton}
+          >
+            <Ionicons name="trash-bin" size={18} color="#FF6B6B" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Ligne des réglages : trois boutons de largeur égale, donc jamais
+            tronqués quelle que soit la longueur du libellé. */}
         <View style={styles.listActions}>
           <TouchableOpacity
             onPress={(e) => {
@@ -1185,13 +1569,34 @@ const PlaylistContent = ({ onBack }) => {
           <TouchableOpacity
             onPress={(e) => {
               e.stopPropagation();
-              confirmDeleteMedia(item.id);
+              openOrientationEditor(item);
             }}
-            style={styles.listDeleteButton}
+            style={[
+              styles.orientationButton,
+              item.orientation &&
+                item.orientation !== "AUTO" &&
+                styles.orientationButtonForced,
+            ]}
           >
-            <Ionicons name="trash-bin" size={20} color="#FF6B6B" />
+            <Ionicons name={orientationUi.icon} size={18} color="#2575fc" />
+            <Text style={styles.durationButtonText}>{orientationUi.label}</Text>
           </TouchableOpacity>
-          <Ionicons name="chevron-forward" size={20} color="#999" />
+
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              openRotationEditor(item);
+            }}
+            style={[
+              styles.orientationButton,
+              item.rotation ? styles.orientationButtonForced : null,
+            ]}
+          >
+            <Ionicons name="sync-outline" size={18} color="#2575fc" />
+            <Text style={styles.durationButtonText}>
+              {item.rotation ? `${item.rotation}°` : "Pivoter"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -1221,9 +1626,20 @@ const PlaylistContent = ({ onBack }) => {
           </TouchableOpacity>
 
           <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {playlist?.name || "Ma Playlist"}
-            </Text>
+            {/* Titre éditable. Le crayon rend l'action visible : un titre
+                simplement cliquable ne se signale pas. */}
+            <TouchableOpacity
+              onPress={openRenameModal}
+              style={styles.headerTitleRow}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Renommer la playlist"
+            >
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {playlist?.name || "Ma Playlist"}
+              </Text>
+              <Ionicons name="pencil" size={15} color="#00E5FF" />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setTvAssignModalVisible(true)}
               style={styles.tvSelector}
@@ -1411,16 +1827,93 @@ const PlaylistContent = ({ onBack }) => {
           setScheduleModalVisible(false);
           setEditingSchedule(playlist && playlist.schedules[0] ? true : false);
         }}
-        schedule={playlist ? playlist.schedules[0] : []}
+        // `null`, jamais `[]` : un tableau vide est TRUTHY, le modal le prenait
+        // donc pour un planning existant, affichait le bouton « Supprimer » et
+        // calculait `new Date(undefined)` sur ses dates.
+        schedule={playlist?.schedules?.[0] ?? null}
         onSave={handleScheduleSave}
         onDelete={handleScheduleDelete}
       />
+
+      {/* Renommage de la playlist. Boîte centrée et non feuille ancrée en bas :
+          elle échappe ainsi à la barre de navigation Android, et le clavier
+          n'a qu'un champ à dégager. */}
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.renameOverlay}>
+          <View style={styles.renameContainer}>
+            <Text style={styles.renameTitle}>Renommer la playlist</Text>
+
+            <TextInput
+              style={styles.renameInput}
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="Titre de la playlist"
+              placeholderTextColor={C.white40}
+              autoFocus
+              selectTextOnFocus
+              maxLength={80}
+              returnKeyType="done"
+              onSubmitEditing={handleRenamePlaylist}
+              editable={!renaming}
+            />
+
+            <View style={styles.renameActions}>
+              <TouchableOpacity
+                style={styles.renameCancel}
+                onPress={() => setRenameModalVisible(false)}
+                disabled={renaming}
+              >
+                <Text style={styles.renameCancelText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.renameConfirm,
+                  (renaming || !renameValue.trim()) &&
+                    styles.renameConfirmDisabled,
+                ]}
+                onPress={handleRenamePlaylist}
+                disabled={renaming || !renameValue.trim()}
+              >
+                {renaming ? (
+                  <ActivityIndicator size="small" color={C.bgDeep} />
+                ) : (
+                  <Text style={styles.renameConfirmText}>Enregistrer</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <DurationModal
         visible={durationModalVisible}
         onClose={() => setDurationModalVisible(false)}
         onSelect={handleDurationSave}
-        currentDuration={editingMedia?.duration || 10}
+        // En millisecondes. Le repli valait 10, soit 10 ms, que le modal
+        // arrondissait à « 0s » : le sélecteur s'ouvrait sur zéro seconde.
+        currentDuration={editingMedia?.duration || 10000}
+        mediaTitle={editingMedia?.title}
+      />
+
+      <OrientationModal
+        visible={orientationModalVisible}
+        onClose={() => setOrientationModalVisible(false)}
+        onSelect={handleOrientationSave}
+        currentOrientation={editingMedia?.orientation || "AUTO"}
+        mediaTitle={editingMedia?.title}
+      />
+
+      <RotationModal
+        visible={rotationModalVisible}
+        onClose={() => setRotationModalVisible(false)}
+        onSelect={handleRotationSave}
+        currentRotation={editingMedia?.rotation ?? 0}
         mediaTitle={editingMedia?.title}
       />
 
@@ -1455,7 +1948,12 @@ const PlaylistContent = ({ onBack }) => {
               disabled={selectedFiles.length === 0 || uploading}
             >
               {uploading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <View style={styles.modalUploadProgress}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.modalUploadButtonText}>
+                    {uploadProgress > 0 ? `${uploadProgress} %` : "Envoi…"}
+                  </Text>
+                </View>
               ) : (
                 <Text style={styles.modalUploadButtonText}>
                   Ajouter ({selectedFiles.length})
@@ -1589,12 +2087,20 @@ const styles = StyleSheet.create({
   headerInfo: {
     flex: 1,
   },
+  // Le crayon doit rester visible quel que soit le titre : c'est le texte qui
+  // se comprime et se tronque, jamais l'icône.
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   headerTitle: {
     fontSize: 22,
     fontWeight: "800",
     color: C.white,
     marginBottom: 5,
     letterSpacing: -0.4,
+    flexShrink: 1,
   },
   headerSubtitle: {
     fontSize: 13,
@@ -1755,15 +2261,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginRight: 14,
   },
+  // Colonne : ligne d'identité, puis ligne de réglages
   listItemContainer: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: C.bgCard,
     borderRadius: 16,
     marginBottom: 10,
     padding: 12,
     borderWidth: 1,
     borderColor: C.border,
+    gap: 10,
+  },
+  listTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   listThumbnail: {
     width: 72,
@@ -1830,8 +2340,8 @@ const styles = StyleSheet.create({
   },
   listActions: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+    alignItems: "stretch",
+    gap: 8,
   },
   listDeleteButton: {
     padding: 8,
@@ -1839,15 +2349,20 @@ const styles = StyleSheet.create({
     backgroundColor: C.dangerDim,
     borderWidth: 1,
     borderColor: C.dangerBorder,
+    marginLeft: 8,
   },
+  // `flex: 1` sur les trois boutons de réglage : ils se partagent la largeur à
+  // égalité et aucun libellé n'est tronqué, quelle que soit sa longueur.
   durationButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     backgroundColor: C.accentDim,
     borderWidth: 1,
     borderColor: C.accentBorder,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
     borderRadius: 10,
     gap: 5,
   },
@@ -1855,6 +2370,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: C.accent,
     fontWeight: "600",
+    // Le libellé cède avant le bouton : sur un écran étroit il se réduit au
+    // lieu de faire déborder la rangée.
+    flexShrink: 1,
+  },
+  orientationButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.accentDim,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+    borderRadius: 10,
+    gap: 5,
+  },
+  // Orientation forcée : bordure pleine pour la distinguer d'un simple "Auto"
+  orientationButtonForced: {
+    borderColor: C.accent,
+  },
+  gridOrientationButton: {
+    padding: 3,
+    marginRight: 4,
   },
 
   // Grid view
@@ -1884,9 +2423,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.25)",
   },
+  // Miniature de la grille : le conteneur porte la hauteur, l'image la remplit.
+  gridThumbWrap: {
+    width: "100%",
+    height: "64%",
+    position: "relative",
+    backgroundColor: C.white05,
+  },
+  gridThumbImage: {
+    width: "100%",
+    height: "100%",
+  },
+  gridPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
+  // 36 % de la carte : il faut de la place pour le titre ET les trois actions.
   mediaInfo: {
-    padding: 7,
-    height: "22%",
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    height: "36%",
+    justifyContent: "space-between",
   },
   mediaTitle: {
     color: C.white,
@@ -1896,13 +2455,41 @@ const styles = StyleSheet.create({
   mediaMeta: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 3,
+    gap: 4,
   },
   mediaType: {
     color: C.white40,
     fontSize: 10,
     flex: 1,
+  },
+  gridActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: C.accentDim,
+    borderWidth: 1,
+    borderColor: C.accentBorder,
+  },
+  // Orientation forcée : bordure pleine, comme en vue liste
+  gridActionButtonForced: {
+    borderColor: C.accent,
+  },
+  gridActionText: {
+    color: C.accent,
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  gridDeleteButton: {
+    marginLeft: "auto",
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: C.dangerDim,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
   },
 
   // ── TV selection modal ────────────────────────────────────────────────────
@@ -2107,6 +2694,11 @@ const styles = StyleSheet.create({
     color: C.white,
     fontSize: 14,
     fontWeight: "700",
+  },
+  modalUploadProgress: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   modalSaveButton: {
     backgroundColor: C.cyan,
@@ -2387,6 +2979,75 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: C.white60,
     fontWeight: "600",
+  },
+
+  // ── Rename modal ──────────────────────────────────────────────────────────
+  renameOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.70)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  renameContainer: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: C.bgCard,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 20,
+    gap: 16,
+  },
+  renameTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: C.white,
+  },
+  renameInput: {
+    borderWidth: 1,
+    borderColor: C.cyanBorder,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: C.white,
+    backgroundColor: C.white05,
+  },
+  renameActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  renameCancel: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 11,
+    backgroundColor: C.white10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  renameCancelText: {
+    color: C.white40,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  renameConfirm: {
+    minWidth: 118,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 11,
+    backgroundColor: C.cyan,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  renameConfirmDisabled: {
+    opacity: 0.45,
+  },
+  renameConfirmText: {
+    color: C.bgDeep,
+    fontSize: 14,
+    fontWeight: "700",
   },
 
   // ── Schedule modal ────────────────────────────────────────────────────────

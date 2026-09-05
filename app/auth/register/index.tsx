@@ -26,6 +26,7 @@ interface FormData {
   lastName: string;
   email: string;
   company: string;
+  siret: string;
   password: string;
   confirmPassword: string;
 }
@@ -34,12 +35,58 @@ interface FormErrors {
   [key: string]: string | undefined;
 }
 
+// ─── SIRET ────────────────────────────────────────────────────────────────────
+// Mêmes règles que côté serveur (server/src/common/validators/siret.validator.ts) :
+// la validation locale ne fait qu'éviter un aller-retour, elle ne remplace pas
+// celle de l'API.
+
+/** Retire les séparateurs : un SIRET est souvent recopié « 123 456 789 00012 ». */
+const normalizeSiret = (value: string) => value.replace(/[\s.-]/g, "");
+
+/** Affiche « 123 456 789 00012 » pendant la saisie. */
+const formatSiret = (digits: string) =>
+  [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 9), digits.slice(9, 14)]
+    .filter(Boolean)
+    .join(" ");
+
+const isLuhnValid = (digits: string) => {
+  let sum = 0;
+  let double = false;
+
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = digits.charCodeAt(i) - 48;
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
+  }
+
+  return sum % 10 === 0;
+};
+
+const isValidSiret = (digits: string) => {
+  if (!/^\d{14}$/.test(digits)) return false;
+
+  // Exception INSEE : les établissements de La Poste (SIREN 356000000) ne
+  // respectent pas Luhn ; leur règle est une somme des chiffres multiple de 5.
+  if (digits.startsWith("356000000")) {
+    return (
+      digits.split("").reduce((total, d) => total + Number(d), 0) % 5 === 0
+    );
+  }
+
+  return isLuhnValid(digits);
+};
+
 const RegisterScreen = () => {
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
     lastName: "",
     email: "",
     company: "",
+    siret: "",
     password: "",
     confirmPassword: "",
   });
@@ -65,22 +112,35 @@ const RegisterScreen = () => {
 
     // Entreprise
     if (!formData.company.trim()) {
-      newErrors.company = "Entreprise requis";
+      newErrors.company = "Entreprise requise";
     } else if (formData.company.trim().length < 2) {
       newErrors.company = "Entreprise trop court";
     }
 
-    // Nom
-    if (!formData.firstName.trim()) {
-      newErrors.name = "Nom requis";
-    } else if (formData.firstName.trim().length < 2) {
-      newErrors.name = "Nom trop court";
+    // SIRET — les comptes sont réservés aux professionnels
+    const siret = normalizeSiret(formData.siret);
+    if (!siret) {
+      newErrors.siret = "SIRET requis";
+    } else if (!/^\d+$/.test(siret)) {
+      newErrors.siret = "Le SIRET ne doit contenir que des chiffres";
+    } else if (siret.length !== 14) {
+      newErrors.siret = `Le SIRET doit comporter 14 chiffres (${siret.length} saisis)`;
+    } else if (!isValidSiret(siret)) {
+      newErrors.siret = "SIRET invalide, vérifiez votre saisie";
     }
 
+    // Prénom
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "Prénom requis";
+    } else if (formData.firstName.trim().length < 2) {
+      newErrors.firstName = "Prénom trop court";
+    }
+
+    // Nom
     if (!formData.lastName.trim()) {
-      newErrors.firstName = "Nom requis";
+      newErrors.lastName = "Nom requis";
     } else if (formData.lastName.trim().length < 2) {
-      newErrors.firstName = "Nom trop court";
+      newErrors.lastName = "Nom trop court";
     }
 
     // Email
@@ -105,11 +165,6 @@ const RegisterScreen = () => {
       newErrors.confirmPassword = "Confirmation requise";
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
-    }
-
-    // Nom d'entreprise
-    if (!formData.company.trim()) {
-      newErrors.businessName = "Nom d'entreprise requis";
     }
 
     // Conditions générales
@@ -145,6 +200,7 @@ const RegisterScreen = () => {
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
           company: formData.company.trim(),
+          siret: normalizeSiret(formData.siret),
           email: formData.email.trim().toLowerCase(),
           password: formData.password,
         },
@@ -177,19 +233,18 @@ const RegisterScreen = () => {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         company: formData.company.trim(),
+        siret: normalizeSiret(formData.siret),
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
 
-      const data = response;
-
       if (response.status === 200 || response.status === 201) {
         Alert.alert(
-          "Inscription réussie ! 🎉",
-          "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
+          "Demande envoyée ! 🎉",
+          "Votre compte a bien été créé. Un administrateur doit maintenant le valider : vous recevrez un e-mail dès qu'il sera activé.",
           [
             {
-              text: "Se connecter",
+              text: "Compris",
               onPress: () => router.navigate("/auth/login"),
             },
           ]
@@ -211,11 +266,18 @@ const RegisterScreen = () => {
       } else {
         Alert.alert("Erreur", "Erreur lors de l'inscription");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur inscription:", error);
 
-      // Simulation pour le développement
-      
+      // L'échec était silencieux : l'utilisateur restait sur le formulaire sans
+      // savoir que son e-mail ou son SIRET était déjà pris.
+      const detail = error?.response?.data?.message;
+      const message = Array.isArray(detail)
+        ? detail.join("\n")
+        : detail ??
+          "Impossible de créer le compte. Vérifiez votre connexion et réessayez.";
+
+      Alert.alert("Inscription impossible", message);
     } finally {
       setLoading(false);
     }
@@ -247,7 +309,9 @@ const RegisterScreen = () => {
               <Ionicons name="person-add" size={50} color="#4CAF50" />
             </View>
             <Text style={styles.title}>Créer un compte</Text>
-            <Text style={styles.subtitle}>Rejoignez RDS Screen</Text>
+            <Text style={styles.subtitle}>
+              RDS Connect est réservé aux professionnels
+            </Text>
           </View>
 
           {/* Formulaire */}
@@ -276,8 +340,8 @@ const RegisterScreen = () => {
                   autoCapitalize="words"
                 />
               </View>
-              {errors.name && (
-                <Text style={styles.errorText}>{errors.name}</Text>
+              {errors.lastName && (
+                <Text style={styles.errorText}>{errors.lastName}</Text>
               )}
             </View>
 
@@ -304,8 +368,8 @@ const RegisterScreen = () => {
                   autoCapitalize="words"
                 />
               </View>
-              {errors.name && (
-                <Text style={styles.errorText}>{errors.name}</Text>
+              {errors.firstName && (
+                <Text style={styles.errorText}>{errors.firstName}</Text>
               )}
             </View>
 
@@ -334,6 +398,47 @@ const RegisterScreen = () => {
               </View>
               {errors.company && (
                 <Text style={styles.errorText}>{errors.company}</Text>
+              )}
+            </View>
+
+            {/* SIRET */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>SIRET *</Text>
+              <View
+                style={[styles.inputWrapper, errors.siret && styles.inputError]}
+              >
+                <Ionicons
+                  name="business-outline"
+                  size={20}
+                  color="#666"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  value={formatSiret(formData.siret)}
+                  onChangeText={(value) =>
+                    // On ne conserve que les chiffres, plafonnés à 14 : le champ
+                    // reste affiché groupé mais `formData.siret` ne contient que
+                    // la valeur brute envoyée à l'API.
+                    updateField(
+                      "siret",
+                      normalizeSiret(value).replace(/\D/g, "").slice(0, 14)
+                    )
+                  }
+                  placeholder="123 456 789 00012"
+                  placeholderTextColor="#999"
+                  keyboardType="number-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={17} // 14 chiffres + 3 espaces de groupement
+                />
+              </View>
+              {errors.siret ? (
+                <Text style={styles.errorText}>{errors.siret}</Text>
+              ) : (
+                <Text style={styles.helperText}>
+                  14 chiffres — RDS Connect est réservé aux professionnels
+                </Text>
               )}
             </View>
 
@@ -644,6 +749,12 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 12,
     color: "#F44336",
+    marginTop: 4,
+    marginLeft: 5,
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#bbb",
     marginTop: 4,
     marginLeft: 5,
   },

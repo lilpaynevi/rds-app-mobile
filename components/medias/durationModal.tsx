@@ -10,6 +10,7 @@ import {
   Dimensions,
   TextInput,
 } from "react-native";
+import KeyboardAwareView from "../KeyboardAwareView";
 
 const { width } = Dimensions.get("window");
 
@@ -88,7 +89,9 @@ export default function DurationModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      {/* La carte est centrée : sans remontée, le clavier recouvrait le champ
+          « durée personnalisée », placé en bas du contenu. */}
+      <KeyboardAwareView style={styles.modalOverlay}>
         <View style={styles.durationModalContainer}>
           {/* Header */}
           <View style={styles.durationModalHeader}>
@@ -116,6 +119,9 @@ export default function DurationModal({
               data={DURATION_OPTIONS}
               keyExtractor={(item) => item.value.toString()}
               showsVerticalScrollIndicator={false}
+              // Le clavier ouvert, un appui sur une durée doit la sélectionner
+              // du premier coup et non simplement refermer le clavier.
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => {
                 const isSelected = selectedDuration === item.value;
                 return (
@@ -203,7 +209,7 @@ export default function DurationModal({
             </Text>
           </View>
         </View>
-      </View>
+      </KeyboardAwareView>
     </Modal>
   );
 }

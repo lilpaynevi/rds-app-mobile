@@ -17,6 +17,17 @@ import * as VideoThumbnails from "expo-video-thumbnails";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 
+/**
+ * Durée d'affichage par défaut d'un média ajouté, en SECONDES.
+ * Elle est envoyée au serveur, qui la respecte désormais au lieu d'imposer la
+ * valeur par défaut du type.
+ */
+const DEFAULT_DURATION = 10;
+
+/** Un PDF garde une durée plus longue : la visionneuse fait défiler ses pages
+ *  toutes les 10 s, 10 s au total n'en afficherait qu'une seule. */
+const DEFAULT_DOCUMENT_DURATION = 30;
+
 const DURATION_OPTIONS = [
   { label: "5 secondes", value: 5 },
   { label: "10 secondes", value: 10 },
@@ -50,7 +61,7 @@ export default function AddMediaForm({
 
   // États pour la sélection groupée
   const [selectedMediaIds, setSelectedMediaIds] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [groupSelectionMode, setGroupSelectionMode] = useState(false);
   const [groupSelectionType, setGroupSelectionType] = useState<
@@ -79,7 +90,7 @@ export default function AddMediaForm({
     if (status !== "granted") {
       Alert.alert(
         "Permission requise",
-        "L'accès à la galerie est nécessaire pour sélectionner des médias."
+        "L'accès à la galerie est nécessaire pour sélectionner des médias.",
       );
       return false;
     }
@@ -107,13 +118,18 @@ export default function AddMediaForm({
   };
 
   // NOUVEAU: Sélection des images et vidéos avec ImagePicker
+  //
+  // Les vidéos déchargées sur iCloud (typiquement les plus longues) échouaient
+  // ici avec « PHPhotosErrorDomain error 3164 ». La cause est dans le module
+  // natif, pas dans ces options : voir patches/expo-image-picker+17.0.11.patch.
   const selectImagesAndVideos = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
 
+    setIsSelectingMedia(true);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ["images", "videos"],
         allowsMultipleSelection: true,
         quality: 0.8,
         allowsEditing: false,
@@ -125,23 +141,43 @@ export default function AddMediaForm({
           uri: asset.uri,
           type: asset.type,
           fileName: asset.fileName || `media_${Date.now() + index}`,
-          duration: 10,
+          duration: DEFAULT_DURATION,
+          // Dimensions fournies par la galerie : c'est la seule source fiable
+          // d'orientation avant l'upload (le serveur ne décode pas les fichiers)
+          width: asset.width ?? null,
+          height: asset.height ?? null,
         }));
 
-        setSelectedMedia([...selectedMedia, ...newMedia]);
-        onSave([...selectedMedia, ...newMedia]);
+        const merged = [...selectedMedia, ...newMedia];
+        setSelectedMedia(merged);
+        onSave(merged);
 
         newMedia.forEach((media) => {
           if (media.type === "video") {
-            generateVideoThumbnail(media.uri, media.id);
+            generateVideoThumbnail(media.uri, media.id.toString());
           }
         });
 
-        setIsSelectingMedia(true);
         setShowMediaTypeSelector(false);
       }
-    } catch (error) {
-      Alert.alert("Erreur", "Impossible de sélectionner les médias");
+    } catch (error: any) {
+      console.error("[AddMediaForm] launchImageLibraryAsync", error);
+
+      // iOS remonte des erreurs Photos brutes du type
+      // « PHPhotosErrorDomain error 3164 », qui ne disent rien à l'utilisateur.
+      const raw = String(error?.message ?? error ?? "");
+      const notDownloaded =
+        raw.includes("3164") || raw.includes("CloudPhotoLibrary");
+
+      const filesHint =
+        "Pour les vidéos longues, passez plutôt par « Photos & Vidéos → Sélectionner depuis vos fichiers ».";
+
+      Alert.alert(
+        notDownloaded ? "Vidéo non téléchargée" : "Import impossible",
+        notDownloaded
+          ? `Cette vidéo est stockée sur iCloud et n'est pas présente sur l'appareil.\n\n${filesHint}\n\nSinon, ouvrez-la dans l'app Photos pour la télécharger entièrement, puis réessayez.`
+          : `Ce média n'a pas pu être importé.\n\n${filesHint}\n\n${raw || "Erreur inconnue."}`,
+      );
     } finally {
       setIsSelectingMedia(false);
     }
@@ -166,7 +202,7 @@ export default function AddMediaForm({
             uri: asset.uri,
             type: isVideo ? "video" : "image",
             fileName: asset.name || `media_${Date.now() + index}`,
-            duration: 10,
+            duration: DEFAULT_DURATION,
             mimeType: asset.mimeType,
           };
         });
@@ -205,7 +241,7 @@ export default function AddMediaForm({
           uri: asset.uri,
           type: "document",
           fileName: asset.name || `document_${Date.now() + index}`,
-          duration: 30, // Durée par défaut pour les documents
+          duration: DEFAULT_DOCUMENT_DURATION,
           size: asset.size,
           mimeType: asset.mimeType,
         }));
@@ -241,13 +277,13 @@ export default function AddMediaForm({
       const newMedias = selectedMedia.map((media) =>
         selectedMediaIds.has(media.id.toString())
           ? { ...media, duration }
-          : media
+          : media,
       );
       setSelectedMedia(newMedias);
       onSave(newMedias);
     } else {
       const newMedias = selectedMedia.map((media) =>
-        media.id === mediaId ? { ...media, duration } : media
+        media.id === mediaId ? { ...media, duration } : media,
       );
       setSelectedMedia(newMedias);
       onSave(newMedias);
@@ -532,7 +568,7 @@ export default function AddMediaForm({
             <View style={styles.mediaTypeOptions}>
               <TouchableOpacity
                 style={styles.mediaTypeOption}
-                onPress={selectImagesAndVideos}
+                onPress={() => selectImagesAndVideos()}
               >
                 <View style={styles.mediaTypeIcon}>
                   <Ionicons name="images" size={32} color="#2575fc" />
@@ -552,7 +588,8 @@ export default function AddMediaForm({
                 </View>
                 <Text style={styles.mediaTypeOptionTitle}>Photos & Vidéos</Text>
                 <Text style={styles.mediaTypeOptionDescription}>
-                  Sélectionner depuis vos fichiers
+                  Sélectionner depuis vos fichiers{"\n"}
+                  Recommandé pour les vidéos longues
                 </Text>
               </TouchableOpacity>
 

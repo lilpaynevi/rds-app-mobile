@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet } from "react-native";
-import { Platform, Text, TouchableOpacity } from "react-native";
+import { Platform, Switch, Text, TouchableOpacity } from "react-native";
 import { View } from "react-native";
 import CustomTimePicker from "./customeTimePicker";
 
@@ -24,16 +24,19 @@ export default function ScheduleForm({
 }) {
   const [startTime, setStartTime] = useState("17:00");
   const [endTime, setEndTime] = useState("18:00");
-  const [daysOfWeek, setDaysOfWeek] = useState([]);
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
+  const [isActive, setIsActive] = useState(true);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
   useEffect(() => {
-    if (values) {
-      setDaysOfWeek(values.daysOfWeek);
-      setStartTime(values.startTime);
-      setEndTime(values.endTime);
-    }
+    if (!values) return;
+    // Replis systématiques : une valeur absente écrasait sinon la valeur par
+    // défaut par `undefined`, et le formulaire affichait un champ vide.
+    setDaysOfWeek(Array.isArray(values.daysOfWeek) ? values.daysOfWeek : []);
+    setStartTime(values.startTime ?? "17:00");
+    setEndTime(values.endTime ?? "18:00");
+    setIsActive(values.isActive !== false);
   }, [values]);
   const [startDate, setStartDate] = useState(() => {
     const tomorrow = new Date();
@@ -47,6 +50,20 @@ export default function ScheduleForm({
     return nextWeek;
   });
 
+  // Émet TOUJOURS la programmation complète.
+  // Le parent se contente de fusionner ce qu'il reçoit : n'envoyer que le champ
+  // modifié laissait les horaires absents de la charge utile tant que
+  // l'utilisateur n'y touchait pas — alors même que l'écran affiche 17:00/18:00.
+  // Or `Schedule.startTime` et `endTime` sont obligatoires en base dès qu'un
+  // jour est sélectionné, d'où un échec de création.
+  const emitSchedule = (overrides: Record<string, any> = {}) =>
+    onSave({ daysOfWeek, startTime, endTime, isActive, ...overrides });
+
+  const toggleActive = (next: boolean) => {
+    setIsActive(next);
+    emitSchedule({ isActive: next });
+  };
+
   const toggleDay = async (dayId: any) => {
     const newDaysOfWeek = daysOfWeek.includes(dayId)
       ? daysOfWeek.filter((id) => id !== dayId)
@@ -55,9 +72,7 @@ export default function ScheduleForm({
     setDaysOfWeek(newDaysOfWeek);
 
     setTimeout(() => {
-      onSave({
-        daysOfWeek: newDaysOfWeek,
-      });
+      emitSchedule({ daysOfWeek: newDaysOfWeek });
     }, 1000);
   };
 
@@ -104,6 +119,30 @@ export default function ScheduleForm({
         <Ionicons name="calendar" size={20} color="#1B2845" />
         <Text style={styles.sectionTitle}>Programmation</Text>
       </View>
+
+      {/* Interrupteur en tête : il conditionne tout le reste du formulaire. */}
+      <View style={styles.activeRow}>
+        <View style={styles.activeTexts}>
+          <Text style={styles.activeTitle}>
+            {isActive ? "Programmation active" : "Programmation désactivée"}
+          </Text>
+          <Text style={styles.activeHint}>
+            {isActive
+              ? "La playlist ne se diffuse que pendant les créneaux ci-dessous."
+              : "Les créneaux sont conservés mais ne s'appliquent pas."}
+          </Text>
+        </View>
+        <Switch
+          value={isActive}
+          onValueChange={toggleActive}
+          trackColor={{ false: "#E0E0E0", true: "#BBDEFB" }}
+          thumbColor={isActive ? "#2575fc" : "#f4f3f4"}
+        />
+      </View>
+
+      {/* Grisé plutôt que masqué : les réglages restent lisibles et modifiables,
+          mais on voit d'un coup d'œil qu'ils ne s'appliquent pas. */}
+      <View style={!isActive && styles.disabledBlock}>
 
       {/* Période d'activité */}
       {/* <View style={styles.subsection}>
@@ -190,9 +229,7 @@ export default function ScheduleForm({
             style={styles.quickSelectButton}
             onPress={() => {
               setDaysOfWeek([1, 2, 3, 4, 5]);
-              onSave({
-                daysOfWeek: [1, 2, 3, 4, 5],
-              });
+              emitSchedule({ daysOfWeek: [1, 2, 3, 4, 5] });
             }}
           >
             <Text style={styles.quickSelectText}>Semaine</Text>
@@ -202,9 +239,7 @@ export default function ScheduleForm({
             style={styles.quickSelectButton}
             onPress={() => {
               setDaysOfWeek([0, 6]);
-              onSave({
-                daysOfWeek: [0, 6],
-              });
+              emitSchedule({ daysOfWeek: [0, 6] });
             }}
           >
             <Text style={styles.quickSelectText}>Weekend</Text>
@@ -214,9 +249,7 @@ export default function ScheduleForm({
             style={styles.quickSelectButton}
             onPress={() => {
               setDaysOfWeek([0, 1, 2, 3, 4, 5, 6]);
-              onSave({
-                daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
-              });
+              emitSchedule({ daysOfWeek: [0, 1, 2, 3, 4, 5, 6] });
             }}
           >
             <Text style={styles.quickSelectText}>Tous</Text>
@@ -226,9 +259,7 @@ export default function ScheduleForm({
             style={styles.quickSelectButton}
             onPress={() => {
               setDaysOfWeek([]);
-              onSave({
-                daysOfWeek: [],
-              });
+              emitSchedule({ daysOfWeek: [] });
             }}
           >
             <Text style={styles.quickSelectText}>Aucun</Text>
@@ -294,10 +325,7 @@ export default function ScheduleForm({
               setStartTime("08:00");
               setEndTime("18:00");
 
-              onSave({
-                startTime: "08:00",
-                endTime: "18:00",
-              });
+              emitSchedule({ startTime: "08:00", endTime: "18:00" });
             }}
           >
             <Text style={styles.presetText}>Journée (8h-18h)</Text>
@@ -309,10 +337,7 @@ export default function ScheduleForm({
               setStartTime("12:00");
               setEndTime("14:00");
 
-              onSave({
-                startTime: "12:00",
-                endTime: "14:00",
-              });
+              emitSchedule({ startTime: "12:00", endTime: "14:00" });
             }}
           >
             <Text style={styles.presetText}>Midi (12h-14h)</Text>
@@ -324,10 +349,7 @@ export default function ScheduleForm({
               setStartTime("18:00");
               setEndTime("22:00");
 
-              onSave({
-                startTime: "18:00",
-                endTime: "22:00",
-              });
+              emitSchedule({ startTime: "18:00", endTime: "22:00" });
             }}
           >
             <Text style={styles.presetText}>Soirée (18h-22h)</Text>
@@ -353,6 +375,7 @@ export default function ScheduleForm({
           </View>
         )}
       </View>
+      </View>
 
       {/* Modals */}
       <CustomTimePicker
@@ -360,9 +383,7 @@ export default function ScheduleForm({
         onClose={() => setShowStartTimePicker(false)}
         onConfirm={(time: string) => {
           setStartTime(time);
-          onSave({
-            startTime: time,
-          });
+          emitSchedule({ startTime: time });
         }}
         initialTime={startTime}
         title="Heure de début"
@@ -373,9 +394,7 @@ export default function ScheduleForm({
         onClose={() => setShowEndTimePicker(false)}
         onConfirm={(time: string) => {
           setEndTime(time);
-          onSave({
-            endTime: time,
-          });
+          emitSchedule({ endTime: time });
         }}
         initialTime={endTime}
         title="Heure de fin"
@@ -385,6 +404,23 @@ export default function ScheduleForm({
 }
 
 const styles = StyleSheet.create({
+  activeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#F3F7FF",
+    borderWidth: 1,
+    borderColor: "#D6E4FF",
+    marginBottom: 16,
+  },
+  activeTexts: { flex: 1 },
+  activeTitle: { fontSize: 14, fontWeight: "700", color: "#1B2845" },
+  activeHint: { fontSize: 11, color: "#66768F", marginTop: 2, lineHeight: 15 },
+  // Programmation désactivée : réglages estompés mais toujours modifiables.
+  disabledBlock: { opacity: 0.45 },
+
   container: {
     flex: 1,
     backgroundColor: "#f5f7fa",

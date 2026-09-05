@@ -22,9 +22,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { getMyTVs } from "@/requests/tv.requests";
 import { createPlaylist } from "@/requests/playlists.requests";
-import { socket } from "@/scripts/socket.io";
 import ScheduleForm from "@/components/schedules/SchelduleForm";
 import AddMediaForm from "@/components/medias/AddMediaForm";
+import KeyboardAwareView from "@/components/KeyboardAwareView";
 
 const { width } = Dimensions.get("window");
 
@@ -376,16 +376,16 @@ export default function AddPlaylistScreen() {
               isActive,
             };
 
-            await createPlaylist(data).then((response) => {
-              if (response && isActive && selectedTV.status) {
-                setTimeout(() => {
-                  socket.emit("tv-change-playlist", {
-                    tvId: selectedTV.id,
-                    newPlaylistId: response.id,
-                  });
-                }, 2000);
-              }
-            });
+            // Aucune émission socket ici. Le serveur inscrit lui-même la
+            // playlist dans la file de diffusion de l'écran et le notifie après
+            // le commit.
+            //
+            // L'ancien appel visait `response.id`, or la réponse est de la forme
+            // `{ playlist, items, schedule, summary }` : l'identifiant était
+            // donc `undefined`, et le serveur rejetait la demande avec « Pas de
+            // playlist indiqué ». Le `setTimeout` de 2 s ne faisait que masquer
+            // le problème derrière un délai arbitraire.
+            await createPlaylist(data);
 
             Alert.alert("🎉 Succès", "Playlist créée avec succès !");
             router.replace("/home");
@@ -442,10 +442,15 @@ export default function AddPlaylistScreen() {
         </View>
       </Animated.View>
 
+      <KeyboardAwareView>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
+        // Sans ça, le premier appui sur un bouton ne sert qu'à refermer le
+        // clavier : il faut appuyer deux fois pour déclencher l'action.
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* ── TITRE ── */}
         <SectionCard
@@ -714,6 +719,7 @@ export default function AddPlaylistScreen() {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+      </KeyboardAwareView>
 
       {/* ── TV MODAL ── */}
       <TVModal

@@ -170,3 +170,25 @@ export const myPlaylists = async () => {
   const res = await api.get("/playlists/me");
   return res.data;
 };
+
+/**
+ * Active ou désactive une playlist sur un écran donné.
+ *
+ * Le serveur bascule `PlaylistTelevision.isActive`, ajoute la playlist en fin de
+ * file (activation) ou l'en retire (désactivation), puis notifie l'écran par
+ * `tv-queue-updated` — la TV se met donc à jour sans intervention du client.
+ *
+ * L'écran est obligatoire : la file d'attente est par télévision, et le serveur
+ * répond 404 si la playlist ne lui est pas assignée.
+ */
+export const setPlaylistActive = async (
+  playlistId: string,
+  televisionId: string,
+  isActive: boolean
+) => {
+  const res = await api.patch(
+    `/playlists/${playlistId}/televisionId/${televisionId}/status`,
+    { isActive }
+  );
+  return res.data;
+};

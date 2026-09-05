@@ -2,7 +2,7 @@
   "expo": {
     "name": "RDS Info",
     "slug": "rds-app",
-    "version": "1.2.2",
+    "version": "1.2.5",
     "orientation": "portrait",
     "icon": "./assets/images/rds-logo-white.jpg",
     "backgroundColor": "#0A192F",
@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rds.mobile",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
